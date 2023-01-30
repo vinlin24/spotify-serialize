@@ -9,10 +9,7 @@ from pathlib import Path
 import click
 import tekore
 
-from .. import CLIENT_ID, REDIRECT_URI
-
-CONFIG_DIR = Path.home() / ".config" / "spotify-serialize"
-CREDS_PATH = CONFIG_DIR / "creds.json"
+from ..utils import CLIENT_ID, CREDS_PATH, REDIRECT_URI, update_creds
 
 REDIRECT_NOTE = (
     f"NOTE: You will be redirected to {REDIRECT_URI} after authorizing "
@@ -24,12 +21,6 @@ REDIRECT_NOTE = (
 def prompt_confirmation() -> None:
     click.secho(REDIRECT_NOTE, fg="yellow")
     click.confirm("Login through Spotify?", abort=True, show_default=True)
-
-
-def update_creds(payload: dict) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with CREDS_PATH.open("wt", encoding="utf-8") as fp:
-        json.dump(payload, fp)
 
 
 @click.command("login")
