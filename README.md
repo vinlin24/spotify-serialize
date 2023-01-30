@@ -104,13 +104,12 @@ In the event that deserializing fails, you can still inspect the data files you 
 ```python
 import zlib
 import json
-from pprint import pprint
 
 # Decompress into JSON file
 with open("backup_file", "rb") as fp:
     compressed = fp.read()
 json_string = zlib.decompress(compressed).decode("utf-8")
 json_data = json.loads(json_string)
-with open("backup_file.json", "rt") as fp:
+with open("backup_file.json", "wt", encoding="utf-8") as fp:
     json.dump(json_data, fp)
 ```
