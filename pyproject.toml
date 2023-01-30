@@ -9,6 +9,7 @@ authors = [
 ]
 description = "Simple backup system for a user's Spotify library"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.8"
 keywords = ["spotify", "backup"]
 classifiers = [
