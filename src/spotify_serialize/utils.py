@@ -4,11 +4,14 @@ Useful constants and helper functions.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Tuple
 
 import click
 import tekore
+
+StyledStr = str
 
 CLIENT_ID = "2ab65a4aa7f1406a859eef2cbe28ac9e"
 REDIRECT_URI = "https://google.com"
@@ -61,3 +64,10 @@ def get_client() -> tekore.Spotify:
         spotify = tekore.Spotify(access_token)
 
     return spotify
+
+
+ANSI_REGEX = r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"
+
+
+def unstyle(s: StyledStr) -> str:
+    return re.sub(ANSI_REGEX, "", s)
