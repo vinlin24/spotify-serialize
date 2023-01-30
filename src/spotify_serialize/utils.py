@@ -21,8 +21,11 @@ class AuthenticationError(Exception):
     pass
 
 
-def update_creds(payload: dict) -> None:
+def ensure_config_dir() -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def update_creds(payload: dict) -> None:
     with CREDS_PATH.open("wt", encoding="utf-8") as fp:
         json.dump(payload, fp)
 
