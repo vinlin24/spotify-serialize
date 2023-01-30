@@ -11,31 +11,19 @@ import tekore
 
 from .. import CLIENT_ID, REDIRECT_URI
 
-ESC = "\x1b"
-CYAN = f"{ESC}[36m"
-BOLD = f"{ESC}[1m"
-UNBOLD = f"{ESC}[22m"
-END = f"{ESC}[0m"
-
-
 CONFIG_DIR = Path.home() / ".config" / "spotify-serialize"
 CREDS_PATH = CONFIG_DIR / "creds.json"
 
+REDIRECT_NOTE = (
+    f"NOTE: You will be redirected to {REDIRECT_URI} after authorizing "
+    "the application. Please paste the resulting URL back into the "
+    "console after the redirect."
+)
 
-def prompt_confirmation() -> bool:
-    bold_url = f"{BOLD}{REDIRECT_URI}{UNBOLD}"
-    print(
-        f"{CYAN}"
-        f"NOTE: You will be redirected to {bold_url} after authorizing "
-        "the application. Please paste the resulting URL back into the "
-        "console after the redirect."
-        f"{END}"
-    )
-    try:
-        response = input("Login through Spotify? [y/N] ")
-    except KeyboardInterrupt:
-        return False
-    return response.lower().startswith("y")
+
+def prompt_confirmation() -> None:
+    click.secho(REDIRECT_NOTE, fg="yellow")
+    click.confirm("Login through Spotify?", abort=True, show_default=True)
 
 
 def ensure_creds_file() -> None:
@@ -46,9 +34,7 @@ def ensure_creds_file() -> None:
 
 @click.command("login")
 def login_command() -> None:
-    if not prompt_confirmation():
-        print("Decided not to log in.")
-        return
+    prompt_confirmation()
     ensure_creds_file()
     token = tekore.prompt_for_pkce_token(CLIENT_ID, REDIRECT_URI)
     payload = {
@@ -57,4 +43,5 @@ def login_command() -> None:
     }
     with CREDS_PATH.open("wt", encoding="utf-8") as fp:
         json.dump(payload, fp)
-    print(f"Authenticated! Wrote access tokens to {CREDS_PATH}")
+    click.secho(f"Authenticated! Wrote access tokens to {CREDS_PATH}.",
+                fg="green")
