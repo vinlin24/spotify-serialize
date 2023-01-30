@@ -26,22 +26,19 @@ def prompt_confirmation() -> None:
     click.confirm("Login through Spotify?", abort=True, show_default=True)
 
 
-def ensure_creds_file() -> None:
+def update_creds(payload: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with CREDS_PATH.open("wt", encoding="utf-8") as fp:
-        json.dump({}, fp)
+        json.dump(payload, fp)
 
 
 @click.command("login")
 def login_command() -> None:
     prompt_confirmation()
-    ensure_creds_file()
     token = tekore.prompt_for_pkce_token(CLIENT_ID, REDIRECT_URI)
-    payload = {
+    update_creds({
         "access_token": token.access_token,
         "refresh_token": token.refresh_token,
-    }
-    with CREDS_PATH.open("wt", encoding="utf-8") as fp:
-        json.dump(payload, fp)
-    click.secho(f"Authenticated! Wrote access tokens to {CREDS_PATH}.",
+    })
+    click.secho(f"Authenticated! Wrote access tokens to {CREDS_PATH}",
                 fg="green")
