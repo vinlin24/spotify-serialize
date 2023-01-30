@@ -5,7 +5,7 @@ Entry point for command line interface.
 
 import click
 
-from .commands import login_command, serialize_command
+from .commands import deserialize_command, login_command, serialize_command
 from .utils import ensure_config_dir
 
 
@@ -18,6 +18,7 @@ def cli() -> None:
 
 cli.add_command(login_command)
 cli.add_command(serialize_command)
+cli.add_command(deserialize_command)
 
 if __name__ == "__main__":
     cli()
