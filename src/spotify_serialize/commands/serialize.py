@@ -22,14 +22,17 @@ class Serializer:
     def __init__(self, spotify: tekore.Spotify) -> None:
         self.spotify = spotify
 
-    def serialize_library(self) -> dict:
-        return {
+    def serialize_library(self) -> bytes:
+        json_data = {
             "playlists": {
                 "owned": self._serialize_owned_playlists(),
                 "followed": self._serialize_followed_playlists(),
             },
             "saved": self._serialize_saved_songs()
         }
+        as_bytes = json.dumps(json_data).encode("utf-8")
+        payload = zlib.compress(as_bytes)
+        return payload
 
     def _serialize_owned_playlists(self) -> Set[PlaylistModel]:
         return NotImplemented
@@ -50,9 +53,7 @@ class Serializer:
               type=click.File(mode="wb", encoding="utf-8"))
 def serialize_command(output: BinaryIO) -> None:
     spotify = get_client()
-    json_data = Serializer(spotify).serialize_library()
-    as_bytes = json.dumps(json_data).encode("utf-8")
-    payload = zlib.compress(as_bytes)
+    payload = Serializer(spotify).serialize_library()
     output.write(payload)
     click.secho(f"Serialized your library into {output.name}",
                 fg="green")
