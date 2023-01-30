@@ -3,9 +3,6 @@
 Implement authentication for this application.
 """
 
-import json
-from pathlib import Path
-
 import click
 import tekore
 
