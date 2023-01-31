@@ -5,15 +5,13 @@ Implement serializing the user's library into a compressed data format.
 
 import json
 import zlib
-from typing import BinaryIO, Dict, Set
+from typing import BinaryIO, Set
 
 import click
 import tekore
 from tekore.model import FullPlaylist
 
-from ..utils import SpotifyID, get_client
-
-PlaylistModel = Dict[SpotifyID, Set[SpotifyID]]
+from ..utils import PlaylistState, SpotifyID, get_client
 
 
 class Serializer:
@@ -32,7 +30,7 @@ class Serializer:
         payload = zlib.compress(as_bytes)
         return payload
 
-    def _serialize_owned_playlists(self) -> Set[PlaylistModel]:
+    def _serialize_owned_playlists(self) -> Set[PlaylistState]:
         return NotImplemented
 
     def _serialize_followed_playlists(self) -> Set[SpotifyID]:
@@ -41,7 +39,7 @@ class Serializer:
     def _serialize_saved_songs(self) -> Set[SpotifyID]:
         return NotImplemented
 
-    def _convert_playlist_model(self, playlist: FullPlaylist) -> PlaylistModel:
+    def _convert_playlist_model(self, playlist: FullPlaylist) -> PlaylistState:
         return NotImplemented
 
 
