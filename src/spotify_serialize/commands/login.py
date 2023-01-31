@@ -11,7 +11,7 @@ from tekore import RefreshingToken
 from tekore.model import PrivateUser
 
 from ..utils import (CLIENT_ID, CONFIG_DIR, CREDS_PATH, REDIRECT_URI,
-                     get_client, update_creds)
+                     get_client, log_event, update_creds)
 
 REDIRECT_NOTE = (
     f"NOTE: You will be redirected to {REDIRECT_URI} after authorizing "
@@ -33,14 +33,7 @@ def write_to_log(token: RefreshingToken, user: PrivateUser) -> None:
         f"Saved access_token={token.access_token!r} to {CREDS_PATH}\n"
         f"Saved refresh_token={token.refresh_token!r} to {CREDS_PATH}"
     )
-
-    now_string = datetime.now().isoformat()
-    header = f"[{now_string}]"
-    footer = "[/]"
-
-    content = f"{header}\n{body}\n{footer}\n\n"
-    with AUTH_LOG_PATH.open("at", encoding="utf-8") as fp:
-        fp.write(content)
+    log_event(AUTH_LOG_PATH, body)
 
 
 @click.command("login")

@@ -6,6 +6,7 @@ Useful constants and helper functions.
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Set, Tuple
 
@@ -66,6 +67,19 @@ def get_client() -> tekore.Spotify:
         spotify = tekore.Spotify(access_token)
 
     return spotify
+
+
+def log_event(path: Path, message: str) -> None:
+    now_string = datetime.now().isoformat()
+
+    # Standardize the delimiters around an event within each log file.
+    # This will make it easier for future parsing.
+    header = f"[{now_string}]"
+    footer = "[/]"
+
+    content = f"{header}\n{message}\n{footer}\n\n"
+    with path.open("at", encoding="utf-8") as fp:
+        fp.write(content)
 
 
 ANSI_REGEX = r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"

@@ -12,7 +12,7 @@ import click
 import tekore
 
 from ..utils import (CONFIG_DIR, PlaylistState, SpotifyID, StyledStr,
-                     get_client, unstyle)
+                     get_client, log_event, unstyle)
 from .serialize import Serializer
 
 # region Constants
@@ -126,15 +126,7 @@ def create_backup(serializer: Serializer) -> None:
 
 def write_to_log(delta_details: StyledStr) -> None:
     raw_details = unstyle(delta_details)
-    now_string = datetime.now().isoformat()
-
-    # Define start and end delimiters in case I'd want to regex parse later
-    header = f"[{now_string}]"
-    footer = "[/]"
-
-    content = f"{header}\n{raw_details}\n{footer}\n\n"
-    with DESERIALIZER_LOG_PATH.open("at", encoding="utf-8") as fp:
-        fp.write(content)
+    log_event(DESERIALIZER_LOG_PATH, raw_details)
 
 
 # endregion Helper Functions
