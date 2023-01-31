@@ -4,7 +4,6 @@ Implement deserializing the compressed data into the user's library.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum, auto
 from typing import BinaryIO, List, Set
 

@@ -3,8 +3,6 @@
 Implement authentication for this application.
 """
 
-from datetime import datetime
-
 import click
 import tekore
 from tekore import RefreshingToken
