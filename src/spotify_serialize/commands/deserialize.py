@@ -11,8 +11,9 @@ from typing import BinaryIO, List, Set
 import click
 import tekore
 
-from ..utils import CONFIG_DIR, StyledStr, get_client, unstyle
-from .serialize import Serializer, SpotifyID
+from ..utils import (CONFIG_DIR, PlaylistState, SpotifyID, StyledStr,
+                     get_client, unstyle)
+from .serialize import Serializer
 
 # region Constants
 
@@ -38,15 +39,6 @@ class ChangeMode(Enum):
     CREATED = auto()
     DELETED = auto()
     MODIFIED = auto()
-
-
-@dataclass
-class PlaylistState:
-    id: SpotifyID
-    name: str
-    description: str
-    photo: str
-    tracks: Set[SpotifyID]
 
 
 @dataclass

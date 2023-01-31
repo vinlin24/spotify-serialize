@@ -11,9 +11,7 @@ import click
 import tekore
 from tekore.model import FullPlaylist
 
-from ..utils import get_client
-
-SpotifyID = str
+from ..utils import SpotifyID, get_client
 
 PlaylistModel = Dict[SpotifyID, Set[SpotifyID]]
 
