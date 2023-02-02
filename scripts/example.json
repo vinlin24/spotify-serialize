@@ -1,0 +1,36 @@
+{
+  "foo": [
+    "hello",
+    true,
+    "there",
+    1024,
+    false,
+    "general kenobi",
+    [
+      "lorem ipsum sin dolor",
+      "the quick brown fox jumped over the lazy dog",
+      "Did you ever hear the Tragedy of Darth Plagueis the Wise?",
+      null
+    ]
+  ],
+  "bar": {
+    "spam": [
+      -17,
+      6e8,
+      0,
+      23
+    ],
+    "eggs": "ham"
+  },
+  "baz": [
+    {
+      "today": "is just another day",
+      "tomorrow": "will be another one as well"
+    },
+    {
+      "today": "is a celebration",
+      "tomorrow": "might not be"
+    }
+  ],
+  "num_items": 3
+}
