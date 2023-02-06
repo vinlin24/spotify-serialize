@@ -5,11 +5,11 @@ Implement serializing the user's library into a compressed data format.
 
 import json
 import zlib
-from typing import BinaryIO, Set
+from typing import BinaryIO, Generator, Set
 
 import click
 import tekore
-from tekore.model import FullPlaylist
+from tekore.model import FullPlaylist, LocalPlaylistTrack, PlaylistTrack
 
 from ..utils import PlaylistState, SpotifyID, get_client
 
@@ -40,7 +40,30 @@ class Serializer:
         return NotImplemented
 
     def _convert_playlist_model(self, playlist: FullPlaylist) -> PlaylistState:
-        return NotImplemented
+        image_url = playlist.images[0].url if playlist.images else None
+
+        playlist_track_iterator: Generator[PlaylistTrack, None, None] = \
+            self.spotify.all_items(playlist.tracks)  # type: ignore
+
+        track_ids = set()
+        for playlist_track in playlist_track_iterator:
+            track = playlist_track.track
+            # No support for local tracks yet.  A LocalPlaylistTrack object
+            # has id=None, and that's just annoying.
+            if track is None or isinstance(track, LocalPlaylistTrack):
+                raise Exception(
+                    "Unknown playlist track format. "
+                    "Local tracks are not yet supported."
+                )
+            track_ids.add(track.id)
+
+        return PlaylistState(
+            id=playlist.id,
+            name=playlist.name,
+            description=playlist.description,
+            photo=image_url,
+            tracks=track_ids
+        )
 
 
 @click.command("serialize")
