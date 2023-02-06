@@ -19,6 +19,17 @@ SpotifyID = str
 CLIENT_ID = "2ab65a4aa7f1406a859eef2cbe28ac9e"
 REDIRECT_URI = "https://google.com"
 
+APP_SCOPES = tekore.Scope(
+    tekore.scope.ugc_image_upload,
+    tekore.scope.playlist_read_private,
+    tekore.scope.playlist_read_collaborative,
+    tekore.scope.playlist_modify_private,
+    tekore.scope.playlist_modify_public,
+    tekore.scope.user_library_read,
+    tekore.scope.user_library_modify,
+)
+
+
 CONFIG_DIR = Path.home() / ".config" / "spotify-serialize"
 CREDS_PATH = CONFIG_DIR / "creds.json"
 
