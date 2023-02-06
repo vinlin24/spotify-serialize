@@ -5,11 +5,12 @@ Implement serializing the user's library into a compressed data format.
 
 import json
 import zlib
-from typing import BinaryIO, Generator, Set
+from typing import BinaryIO, Generator, List
 
 import click
 import tekore
-from tekore.model import FullPlaylist, LocalPlaylistTrack, PlaylistTrack
+from tekore.model import (FullPlaylist, LocalPlaylistTrack, PlaylistTrack,
+                          SavedTrack)
 
 from ..utils import PlaylistState, SpotifyID, get_client
 
@@ -30,14 +31,17 @@ class Serializer:
         payload = zlib.compress(as_bytes)
         return payload
 
-    def _serialize_owned_playlists(self) -> Set[PlaylistState]:
-        return NotImplemented
+    def _serialize_owned_playlists(self) -> List[PlaylistState]:
+        return []
 
-    def _serialize_followed_playlists(self) -> Set[SpotifyID]:
-        return NotImplemented
+    def _serialize_followed_playlists(self) -> List[SpotifyID]:
+        return []
 
-    def _serialize_saved_songs(self) -> Set[SpotifyID]:
-        return NotImplemented
+    def _serialize_saved_songs(self) -> List[SpotifyID]:
+        saved_track_iterator: Generator[SavedTrack, None, None] = \
+            self.spotify.all_items(self.spotify.saved_tracks())  # type: ignore
+
+        return [saved_track.track.id for saved_track in saved_track_iterator]
 
     def _convert_playlist_model(self, playlist: FullPlaylist) -> PlaylistState:
         image_url = playlist.images[0].url if playlist.images else None
@@ -72,7 +76,8 @@ class Serializer:
               type=click.File(mode="wb", encoding="utf-8"))
 def serialize_command(output: BinaryIO) -> None:
     spotify = get_client()
+
+    click.secho("Serializing your library...", fg="green")
     payload = Serializer(spotify).serialize_library()
     output.write(payload)
-    click.secho(f"Serialized your library into {output.name}",
-                fg="green")
+    click.secho(f"Serialized your library into {output.name}", fg="green")
