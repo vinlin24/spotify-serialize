@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Set, Tuple
+from typing import List, Optional, Tuple
 
 import click
 import tekore
@@ -106,4 +106,4 @@ class PlaylistState:
     name: str
     description: str
     photo: Optional[str]
-    tracks: Set[SpotifyID]
+    tracks: List[SpotifyID]

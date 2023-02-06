@@ -45,7 +45,7 @@ class Serializer:
         playlist_track_iterator: Generator[PlaylistTrack, None, None] = \
             self.spotify.all_items(playlist.tracks)  # type: ignore
 
-        track_ids = set()
+        track_ids = []
         for playlist_track in playlist_track_iterator:
             track = playlist_track.track
             # No support for local tracks yet.  A LocalPlaylistTrack object
@@ -55,7 +55,7 @@ class Serializer:
                     "Unknown playlist track format. "
                     "Local tracks are not yet supported."
                 )
-            track_ids.add(track.id)
+            track_ids.append(track.id)
 
         return PlaylistState(
             id=playlist.id,
