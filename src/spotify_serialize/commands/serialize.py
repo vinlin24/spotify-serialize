@@ -5,12 +5,13 @@ Implement serializing the user's library into a compressed data format.
 
 import json
 import zlib
-from typing import BinaryIO, Generator, List
+from dataclasses import asdict
+from typing import BinaryIO, Generator, List, Tuple
 
 import click
 import tekore
 from tekore.model import (FullPlaylist, LocalPlaylistTrack, PlaylistTrack,
-                          SavedTrack)
+                          SavedTrack, SimplePlaylist)
 
 from ..utils import PlaylistState, SpotifyID, get_client
 
@@ -20,10 +21,11 @@ class Serializer:
         self.spotify = spotify
 
     def serialize_library(self) -> bytes:
+        owned, followed = self._serialize_playlists()
         json_data = {
             "playlists": {
-                "owned": self._serialize_owned_playlists(),
-                "followed": self._serialize_followed_playlists(),
+                "owned": [asdict(state) for state in owned],
+                "followed": followed,
             },
             "saved": self._serialize_saved_songs()
         }
@@ -31,11 +33,27 @@ class Serializer:
         payload = zlib.compress(as_bytes)
         return payload
 
-    def _serialize_owned_playlists(self) -> List[PlaylistState]:
-        return []
+    def _serialize_playlists(self) -> Tuple[List[PlaylistState],
+                                            List[SpotifyID]]:
+        user_id = self.spotify.current_user().id
+        user_playlists = self.spotify.playlists(user_id)
+        simple_playlist_iterator: Generator[SimplePlaylist, None, None] = \
+            self.spotify.all_items(user_playlists)  # type: ignore
 
-    def _serialize_followed_playlists(self) -> List[SpotifyID]:
-        return []
+        owned: List[PlaylistState] = []
+        followed: List[SpotifyID] = []
+
+        for simple_playlist in simple_playlist_iterator:
+            owner_id = simple_playlist.owner.id
+            if owner_id == user_id:
+                full_playlist: FullPlaylist = \
+                    self.spotify.playlist(simple_playlist.id)  # type: ignore
+                playlist_state = self._convert_playlist_model(full_playlist)
+                owned.append(playlist_state)
+            else:
+                followed.append(simple_playlist.id)
+
+        return (owned, followed)
 
     def _serialize_saved_songs(self) -> List[SpotifyID]:
         saved_track_iterator: Generator[SavedTrack, None, None] = \
