@@ -5,7 +5,7 @@ Useful constants and helper functions.
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -102,8 +102,8 @@ def unstyle(s: StyledStr) -> str:
 
 @dataclass
 class PlaylistState:
-    id: SpotifyID
-    name: str
-    description: str
-    photo: Optional[str]
-    tracks: List[SpotifyID]
+    id: Optional[SpotifyID] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    photo: Optional[str] = None
+    tracks: List[SpotifyID] = field(default_factory=list)
