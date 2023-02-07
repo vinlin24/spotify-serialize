@@ -6,7 +6,7 @@ Implement deserializing the compressed data into the user's library.
 import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import BinaryIO, List, Set
+from typing import BinaryIO, Hashable, List, TypeVar
 
 import click
 import tekore
@@ -45,12 +45,14 @@ class ChangeMode(Enum):
 class Delta:
     original: PlaylistState
     changed: PlaylistState
-    additions: Set[SpotifyID] = field(init=False)
-    deletions: Set[SpotifyID] = field(init=False)
+    additions: List[SpotifyID] = field(init=False)
+    deletions: List[SpotifyID] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.additions = self.changed.tracks - self.original.tracks
-        self.deletions = self.original.tracks - self.changed.tracks
+        self.additions = get_list_diff(self.original.tracks,
+                                       self.changed.tracks)
+        self.deletions = get_list_diff(self.changed.tracks,
+                                       self.original.tracks)
 
 
 @dataclass
@@ -127,6 +129,13 @@ def create_backup(serializer: Serializer) -> None:
 def write_to_log(delta_details: StyledStr) -> None:
     raw_details = unstyle(delta_details)
     log_event(DESERIALIZER_LOG_PATH, raw_details)
+
+
+T = TypeVar("T", bound=Hashable)
+
+
+def get_list_diff(list1: List[T], list2: List[T]) -> List[T]:
+    return [item for item in (set(list2) - set(list1))]  # lazy lol
 
 
 # endregion Helper Functions
