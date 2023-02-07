@@ -4,6 +4,7 @@ Implement deserializing the compressed data into the user's library.
 """
 
 import json
+import zlib
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import BinaryIO, Hashable, List, TypeVar
@@ -154,7 +155,11 @@ def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
         prompt_confirmation()
         create_backup(Serializer(spotify))
 
-    library_json: dict = json.load(input)
+    # TODO: Make compression/decompression into own subroutines?
+    as_bytes = zlib.decompress(input.read())
+    json_string = as_bytes.decode("utf-8")
+    library_json = json.loads(json_string)
+    # Also TODO: Also accept JSON like how serialize can produce JSON
 
     deserializer = Deserializer(spotify, library_json, hard)
     library_delta = deserializer.deserialize_library()
