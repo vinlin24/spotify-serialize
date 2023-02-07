@@ -149,9 +149,9 @@ class Deserializer:
         for saved_track in current_saved_tracks:
             library_tracks.append(saved_track.track.id)
 
-        before = PlaylistState(tracks=backup_tracks)
         current = PlaylistState(tracks=library_tracks)
-        return SavedSongsDelta(before, current)
+        before = PlaylistState(tracks=backup_tracks)
+        return SavedSongsDelta(current, before)
 
 
 # endregion Type Definitions
