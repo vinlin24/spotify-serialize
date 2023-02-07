@@ -86,18 +86,31 @@ class LibraryDelta:
         liked_songs_summary = click.style("* Liked Songs",
                                           fg="black",
                                           bg="white")
+
         num_saved_adds = len(self.saved_delta.additions)
         num_saved_dels = len(self.saved_delta.deletions)
+        old_size = len(self.saved_delta.original.tracks)
+
         if num_saved_adds == 0 and \
                 (not deletions_allowed or num_saved_dels == 0):
-            pass
+            liked_songs_summary += f"\n  No change! {old_size} total track(s)"
         else:
+            new_size = old_size + num_saved_adds
             if num_saved_adds > 0:
                 s = click.style(f"+{num_saved_adds} track(s)", fg="green")
                 liked_songs_summary += f"\n  {s}"
             if deletions_allowed and num_saved_dels > 0:
                 s = click.style(f"-{num_saved_dels} track(s)", fg="red")
                 liked_songs_summary += f"\n  {s}"
+                new_size -= num_saved_dels
+
+            size_diff = new_size - old_size
+            if size_diff > 0:
+                colored_diff = click.style(f"(+{size_diff})", fg="green")
+            else:
+                colored_diff = click.style(f"({size_diff})", fg="red")
+            s = f"{colored_diff} {old_size} -> {new_size} total track(s)"
+            liked_songs_summary += f"\n {s}"  # One space to align nums
 
         summary += liked_songs_summary
 
