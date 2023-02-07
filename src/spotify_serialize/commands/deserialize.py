@@ -81,14 +81,13 @@ class LibraryDelta:
 
 
 class Deserializer:
-    # pylint: disable=redefined-builtin
     def __init__(self,
                  spotify: tekore.Spotify,
-                 input: BinaryIO,
+                 library_json: dict,
                  hard: bool
                  ) -> None:
         self.spotify = spotify
-        self.input = input
+        self.library_json = library_json
         self.hard = hard
 
     def deserialize_library(self) -> LibraryDelta:
@@ -155,7 +154,9 @@ def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
         prompt_confirmation()
         create_backup(Serializer(spotify))
 
-    deserializer = Deserializer(spotify, input, hard)
+    library_json: dict = json.load(input)
+
+    deserializer = Deserializer(spotify, library_json, hard)
     library_delta = deserializer.deserialize_library()
 
     # Output a report on what the deserializer did
