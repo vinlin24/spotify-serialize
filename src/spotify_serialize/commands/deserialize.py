@@ -238,9 +238,17 @@ def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
 
     library_delta = deserializer.deserialize_library()
 
+    if hard:
+        click.secho("Added the missing playlists and/or tracks in your backup "
+                    "file back into your library, and removed all playlists "
+                    "and/or tracks that were not present in the backup file.",
+                    fg="green")
+    else:
+        click.secho("Added the missing playlists and/or tracks in your backup "
+                    "file back into your library.",
+                    fg="green")
+
     # Output a report on what the deserializer did
-    click.secho("Deserialized the track differences into your library!",
-                fg="green")
     full_details = library_delta.get_full()
     summary_details = library_delta.get_summary(hard)
     if verbose:
