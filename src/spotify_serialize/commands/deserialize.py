@@ -74,8 +74,30 @@ class LibraryDelta:
         self.saved_delta = saved_delta
         self.playlist_deltas = playlist_deltas
 
-    def get_summary(self) -> StyledStr:
-        return click.style("TODO: Summary report.")
+    def get_summary(self, deletions_allowed: bool) -> StyledStr:
+        summary = ""
+
+        liked_songs_summary = click.style("* Liked Songs",
+                                          fg="black",
+                                          bg="white")
+        num_saved_adds = len(self.saved_delta.additions)
+        num_saved_dels = len(self.saved_delta.deletions)
+        if num_saved_adds == 0 and \
+                (not deletions_allowed or num_saved_dels == 0):
+            pass
+        else:
+            if num_saved_adds > 0:
+                s = click.style(f"+{num_saved_adds} track(s)", fg="green")
+                liked_songs_summary += f"\n  {s}"
+            if deletions_allowed and num_saved_dels > 0:
+                s = click.style(f"-{num_saved_dels} track(s)", fg="red")
+                liked_songs_summary += f"\n  {s}"
+
+        summary += liked_songs_summary
+
+        # TODO: Handle playlist summary.
+
+        return summary
 
     def get_full(self) -> StyledStr:
         return click.style("TODO: Full detail report.")
@@ -162,15 +184,25 @@ def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
     # Also TODO: Also accept JSON like how serialize can produce JSON
 
     deserializer = Deserializer(spotify, library_json, hard)
+    click.secho(f"Deserializing your backup file {input.name}...",
+                fg="green")
+
     library_delta = deserializer.deserialize_library()
 
     # Output a report on what the deserializer did
+    click.secho("Deserialized the track differences into your library!",
+                fg="green")
     full_details = library_delta.get_full()
-    summary_details = library_delta.get_summary()
+    summary_details = library_delta.get_summary(hard)
     if verbose:
+        click.secho("\nBelow is a full report on what we did:\n",
+                    fg="bright_black")
         click.echo(full_details)
     else:
+        click.secho("\nBelow is a summary of what we did:\n",
+                    fg="bright_black")
         click.echo(summary_details)
+    click.echo()
 
     # In any case, write the full details to the log file
     write_to_log(full_details)
