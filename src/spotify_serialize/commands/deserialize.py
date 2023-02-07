@@ -20,9 +20,13 @@ from .serialize import Serializer
 # region Constants
 
 
-# TODO: Update this message to match the renamed --hard
-REPLACEMENT_NOTICE = (
-    "WARNING: You specified the \"replacement\" option. This will add all the "
+DESERIALIZE_NOTICE = (
+    "You're about to use the contents of the backup file to MODIFY the "
+    "current state of your Spotify library. Proceed?"
+)
+
+HARD_OPTION_NOTICE = (
+    "WARNING: You specified the \"hard\" option. This will add all the "
     "playlists and tracks included in the input file, but it will also REMOVE "
     "any playlists and tracks in your library NOT present in the input file. "
     "A backup of your library will be be created beforehand. Proceed?"
@@ -157,7 +161,14 @@ class Deserializer:
 
 
 def prompt_confirmation() -> None:
-    click.confirm(click.style(REPLACEMENT_NOTICE, fg="red"),
+    click.confirm(click.style(DESERIALIZE_NOTICE, fg="yellow"),
+                  default=False,
+                  abort=True,
+                  show_default=True)
+
+
+def prompt_hard_confirmation() -> None:
+    click.confirm(click.style(HARD_OPTION_NOTICE, fg="red"),
                   default=False,
                   abort=True,
                   show_default=True)
@@ -196,8 +207,10 @@ def get_list_diff(list1: List[T], list2: List[T]) -> List[T]:
 def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
     spotify = get_client()
 
+    prompt_confirmation()
+
     if hard:
-        prompt_confirmation()
+        prompt_hard_confirmation()
         create_backup(Serializer(spotify))
 
     # TODO: Make compression/decompression into own subroutines?
