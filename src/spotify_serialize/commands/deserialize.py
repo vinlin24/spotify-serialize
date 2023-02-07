@@ -3,6 +3,7 @@
 Implement deserializing the compressed data into the user's library.
 """
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import BinaryIO, List, Set
@@ -24,7 +25,7 @@ REPLACEMENT_NOTICE = (
     "A backup of your library will be be created beforehand. Proceed?"
 )
 
-BACKUP_PATH = CONFIG_DIR / "backup"
+BACKUP_PATH = CONFIG_DIR / "backup.json"
 DESERIALIZER_LOG_PATH = CONFIG_DIR / "deserializer.log"
 
 
@@ -117,9 +118,9 @@ def prompt_confirmation() -> None:
 
 def create_backup(serializer: Serializer) -> None:
     click.secho(f"Creating backup at {BACKUP_PATH}...", fg="bright_black")
-    payload = serializer.serialize_library()
-    with BACKUP_PATH.open("wb") as fp:
-        fp.write(payload)
+    library_json = serializer.get_library_json()
+    with BACKUP_PATH.open("wt") as fp:
+        json.dump(library_json, fp)
     click.secho("Finished creating backup.", fg="bright_black")
 
 

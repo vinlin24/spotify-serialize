@@ -20,18 +20,15 @@ class Serializer:
     def __init__(self, spotify: tekore.Spotify) -> None:
         self.spotify = spotify
 
-    def serialize_library(self) -> bytes:
+    def get_library_json(self) -> dict:
         owned, followed = self._serialize_playlists()
-        json_data = {
+        return {
             "playlists": {
                 "owned": [asdict(state) for state in owned],
                 "followed": followed,
             },
             "saved": self._serialize_saved_songs()
         }
-        as_bytes = json.dumps(json_data).encode("utf-8")
-        payload = zlib.compress(as_bytes)
-        return payload
 
     def _serialize_playlists(self) -> Tuple[List[PlaylistState],
                                             List[SpotifyID]]:
