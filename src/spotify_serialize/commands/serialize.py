@@ -6,6 +6,7 @@ Implement serializing the user's library into a compressed data format.
 import json
 import zlib
 from dataclasses import asdict
+from pathlib import Path
 from typing import BinaryIO, Generator, List, Tuple
 
 import click
@@ -89,10 +90,48 @@ class Serializer:
 @click.option("-o", "--output",
               required=True,
               type=click.File(mode="wb", encoding="utf-8"))
-def serialize_command(output: BinaryIO) -> None:
+@click.option("-j", "--with-json", is_flag=True)
+def serialize_command(output: BinaryIO,
+                      with_json: bool,
+                      ) -> None:
     spotify = get_client()
 
-    click.secho("Serializing your library...", fg="green")
-    payload = Serializer(spotify).serialize_library()
-    output.write(payload)
-    click.secho(f"Serialized your library into {output.name}", fg="green")
+    output_is_json = (Path(output.name).suffix.lower() == ".json")
+    format_choice = "binary"
+    if output_is_json:
+        format_choice = "JSON"
+    elif with_json:
+        format_choice = "binary + JSON"
+    click.secho(f"Serializing your library ({format_choice})...",
+                fg="green")
+
+    library_json = Serializer(spotify).get_library_json()
+    as_bytes = json.dumps(library_json).encode("utf-8")
+
+    # Directly write to the output stream with JSON data as bytes.
+    # Notice with_json is ignored if the output path is already JSON.
+    if output_is_json:
+        output.write(as_bytes)
+        click.secho(f"Saved your library as a JSON document at {output.name}",
+                    fg="green")
+        return
+
+    # Otherwise, convert JSON data into compressed bytes
+    compressed = zlib.compress(as_bytes)
+    output.write(compressed)
+    click.secho(f"Serialized your library into binary file {output.name}",
+                fg="green")
+
+    # If the user wants to keep the JSON data alongside the binary
+    if with_json:
+        json_path = Path(Path(output.name).stem + ".json")
+        if json_path.exists():
+            click.secho(f"Cannot create a JSON copy at {json_path} because it "
+                        f"already exists. Binary file {output.name} is fine.",
+                        fg="red",
+                        err=True)
+            raise click.Abort
+        with json_path.open("wt", encoding="utf-8") as fp:
+            json.dump(library_json, fp)
+        click.secho(f"Also generated an uncompressed JSON copy at {json_path}",
+                    fg="green")
