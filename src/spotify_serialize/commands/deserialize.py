@@ -85,11 +85,11 @@ class Deserializer:
     def __init__(self,
                  spotify: tekore.Spotify,
                  input: BinaryIO,
-                 replace: bool
+                 hard: bool
                  ) -> None:
         self.spotify = spotify
         self.input = input
-        self.replace = replace
+        self.hard = hard
 
     def deserialize_library(self) -> LibraryDelta:
         saved_delta = self._deserialize_saved_songs()
@@ -97,11 +97,11 @@ class Deserializer:
         return LibraryDelta(saved_delta, playlist_deltas)
 
     def _deserialize_saved_songs(self) -> SavedSongsDelta:
-        # TODO: remember to consider the self.replace option
+        # TODO: remember to consider the self.hard option
         return NotImplemented
 
     def _deserialize_playlists(self) -> List[PlaylistDelta]:
-        # TODO: remember to consider the self.replace option
+        # TODO: remember to consider the self.hard option
         return NotImplemented
 
 
@@ -145,17 +145,17 @@ def get_list_diff(list1: List[T], list2: List[T]) -> List[T]:
 @click.option("-i", "--input",
               required=True,
               type=click.File("rb", encoding="utf-8"))
-@click.option("-r", "--replace", is_flag=True)
+@click.option("-h", "--hard", is_flag=True)
 @click.option("-v", "--verbose", is_flag=True)
 # pylint: disable=redefined-builtin
-def deserialize_command(input: BinaryIO, replace: bool, verbose: bool) -> None:
+def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
     spotify = get_client()
 
-    if replace:
+    if hard:
         prompt_confirmation()
         create_backup(Serializer(spotify))
 
-    deserializer = Deserializer(spotify, input, replace)
+    deserializer = Deserializer(spotify, input, hard)
     library_delta = deserializer.deserialize_library()
 
     # Output a report on what the deserializer did
