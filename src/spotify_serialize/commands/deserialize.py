@@ -7,10 +7,11 @@ import json
 import zlib
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import BinaryIO, Hashable, List, TypeVar
+from typing import BinaryIO, Generator, Hashable, List, TypeVar
 
 import click
 import tekore
+from tekore.model import SavedTrack
 
 from ..utils import (CONFIG_DIR, PlaylistState, SpotifyID, StyledStr,
                      get_client, log_event, unstyle)
@@ -19,6 +20,7 @@ from .serialize import Serializer
 # region Constants
 
 
+# TODO: Update this message to match the renamed --hard
 REPLACEMENT_NOTICE = (
     "WARNING: You specified the \"replacement\" option. This will add all the "
     "playlists and tracks included in the input file, but it will also REMOVE "
@@ -119,12 +121,33 @@ class Deserializer:
         return LibraryDelta(saved_delta, playlist_deltas)
 
     def _deserialize_saved_songs(self) -> SavedSongsDelta:
-        # TODO: remember to consider the self.hard option
-        return NotImplemented
+        delta = self._get_saved_tracks_diff()
+
+        # TODO: Maybe somehow decouple this chunked business
+        with self.spotify.chunked(True):
+            self.spotify.saved_tracks_add(delta.additions)
+            if self.hard:
+                self.spotify.saved_tracks_delete(delta.deletions)
+
+        return delta
 
     def _deserialize_playlists(self) -> List[PlaylistDelta]:
         # TODO: remember to consider the self.hard option
-        return NotImplemented
+        return []
+
+    def _get_saved_tracks_diff(self) -> SavedSongsDelta:
+        backup_tracks: List[SpotifyID] = self.library_json["saved"]
+
+        # TODO: Maybe refactor all this into a separate helper generator
+        library_tracks: List[SpotifyID] = []
+        current_saved_tracks: Generator[SavedTrack, None, None] = \
+            self.spotify.all_items(self.spotify.saved_tracks())  # type: ignore
+        for saved_track in current_saved_tracks:
+            library_tracks.append(saved_track.track.id)
+
+        before = PlaylistState(tracks=backup_tracks)
+        current = PlaylistState(tracks=library_tracks)
+        return SavedSongsDelta(before, current)
 
 
 # endregion Type Definitions
