@@ -100,7 +100,7 @@ def unstyle(s: StyledStr) -> str:
     return re.sub(ANSI_REGEX, "", s)
 
 
-@dataclass
+@dataclass(eq=True)
 class PlaylistState:
     id: Optional[SpotifyID] = None
     name: Optional[str] = None
