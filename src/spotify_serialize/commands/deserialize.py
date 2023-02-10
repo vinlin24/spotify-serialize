@@ -285,7 +285,7 @@ class Deserializer:
 
         for simple_playlist in simple_playlists:
             full_playlist = self.spotify.playlist(simple_playlist.id)
-            if full_playlist.id == user_id:  # type: ignore
+            if full_playlist.owner.id == user_id:  # type: ignore
                 owned_playlists.append(full_playlist)
             else:
                 followed_playlists.append(full_playlist)
