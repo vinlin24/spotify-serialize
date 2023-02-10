@@ -7,7 +7,8 @@ import json
 import zlib
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import BinaryIO, Generator, Hashable, List, TypeVar
+from typing import (BinaryIO, Generator, Hashable, List, Optional, Tuple,
+                    TypeVar)
 
 import click
 import tekore
@@ -64,7 +65,7 @@ class Delta:
 
 @dataclass
 class PlaylistDelta(Delta):
-    mode = ChangeMode
+    mode: ChangeMode
 
 
 @dataclass
@@ -80,28 +81,63 @@ class LibraryDelta:
         self.saved_delta = saved_delta
         self.playlist_deltas = playlist_deltas
 
-    def get_summary(self, deletions_allowed: bool) -> StyledStr:
+    def get_header_style(self, mode: ChangeMode
+                         ) -> Tuple[str, Optional[str]]:
+        if mode is ChangeMode.CREATED:
+            bullet_point = "+"
+            color = "green"
+        elif mode is ChangeMode.DELETED:
+            bullet_point = "-"
+            color = "red"
+        else:
+            bullet_point = "*"
+            color = None
+        return (bullet_point, color)
+
+    def format_delta_summary(self, delta: Delta, hard: bool) -> str:
         summary = ""
 
-        liked_songs_summary = click.style("* Liked Songs",
-                                          fg="black",
-                                          bg="white")
+        # Figure out header based on change mode, name change, etc.
 
-        num_saved_adds = len(self.saved_delta.additions)
-        num_saved_dels = len(self.saved_delta.deletions)
-        old_size = len(self.saved_delta.original.tracks)
+        old_name = delta.original.name
+        new_name = delta.changed.name
 
+        is_liked_songs = (old_name is None and new_name is None)
+        if is_liked_songs:
+            header = click.style("* Liked Songs", fg="black", bg="white")
+        else:
+            name_changed = (new_name is not None and new_name != old_name)
+            if name_changed:
+                striked = click.style(old_name, strikethrough=True, dim=True)
+                header = click.style(f"> {striked} {new_name}")
+            else:
+                playlist_delta: PlaylistDelta = delta  # type: ignore
+                mode = playlist_delta.mode
+                bullet_point, color = self.get_header_style(mode)
+                header = click.style(f"{bullet_point} {old_name}", fg=color)
+
+        summary += header
+
+        # Figure out the additions, deletions, total size change, etc.
+
+        num_saved_adds = len(delta.additions)
+        num_saved_dels = len(delta.deletions)
+        old_size = len(delta.original.tracks)
+
+        deletions_allowed = hard
         if num_saved_adds == 0 and \
                 (not deletions_allowed or num_saved_dels == 0):
-            liked_songs_summary += f"\n  No change! {old_size} total track(s)"
+            summary += f"\n  No change! {old_size} total track(s)"
+
         else:
             new_size = old_size + num_saved_adds
+
             if num_saved_adds > 0:
                 s = click.style(f"+{num_saved_adds} track(s)", fg="green")
-                liked_songs_summary += f"\n  {s}"
+                summary += f"\n  {s}"
             if deletions_allowed and num_saved_dels > 0:
                 s = click.style(f"-{num_saved_dels} track(s)", fg="red")
-                liked_songs_summary += f"\n  {s}"
+                summary += f"\n  {s}"
                 new_size -= num_saved_dels
 
             size_diff = new_size - old_size
@@ -109,13 +145,20 @@ class LibraryDelta:
                 colored_diff = click.style(f"(+{size_diff})", fg="green")
             else:
                 colored_diff = click.style(f"({size_diff})", fg="red")
-            s = f"{colored_diff} {old_size} -> {new_size} total track(s)"
-            liked_songs_summary += f"\n {s}"  # One space to align nums
 
-        summary += liked_songs_summary
+            size = f"{colored_diff} {old_size} -> {new_size} total track(s)"
+            summary += f"\n {size}"  # One space to align nums
+
+        return summary
+
+    def get_summary(self, hard: bool) -> StyledStr:
+        summary = ""
+
+        liked_songs_summary = self.format_delta_summary(self.saved_delta, hard)
 
         # TODO: Handle playlist summary.
 
+        summary += liked_songs_summary
         return summary
 
     def get_full(self) -> StyledStr:
