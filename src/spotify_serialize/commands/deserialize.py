@@ -149,16 +149,21 @@ class LibraryDelta:
             size = f"{colored_diff} {old_size} -> {new_size} total track(s)"
             summary += f"\n {size}"  # One space to align nums
 
-        return summary
+        return summary + "\n"
 
     def get_summary(self, hard: bool) -> StyledStr:
         summary = ""
 
         liked_songs_summary = self.format_delta_summary(self.saved_delta, hard)
 
-        # TODO: Handle playlist summary.
+        playlist_summaries = []
+        for playlist_delta in self.playlist_deltas:
+            playlist_summary = self.format_delta_summary(playlist_delta, hard)
+            playlist_summaries.append(playlist_summary)
+        playlists_summary = "\n".join(playlist_summaries)
 
         summary += liked_songs_summary
+        summary += playlists_summary
         return summary
 
     def get_full(self) -> StyledStr:
