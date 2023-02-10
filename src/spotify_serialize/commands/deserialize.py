@@ -102,19 +102,21 @@ class LibraryDelta:
 
         old_name = delta.original.name
         new_name = delta.changed.name
-        playlist_id = delta.original.id
+        old_playlist_id = delta.original.id
+        new_playlist_id = delta.changed.id
 
-        is_liked_songs = (playlist_id is None)
+        is_liked_songs = (old_playlist_id is None and new_playlist_id is None)
         if is_liked_songs:
             header = click.style("* Liked Songs", fg="black", bg="white")
         else:
-            name_changed = (new_name is not None and new_name != old_name)
+            playlist_delta: PlaylistDelta = delta  # type: ignore
+            mode = playlist_delta.mode
+            name_changed = (mode == ChangeMode.MODIFIED
+                            and new_name != old_name)
             if name_changed:
                 striked = click.style(old_name, strikethrough=True, dim=True)
                 header = click.style(f"> {striked} {new_name}")
             else:
-                playlist_delta: PlaylistDelta = delta  # type: ignore
-                mode = playlist_delta.mode
                 bullet_point, color = self.get_header_style(mode)
                 header = click.style(f"{bullet_point} {old_name}", fg=color)
 
