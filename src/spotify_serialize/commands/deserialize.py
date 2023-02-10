@@ -7,12 +7,13 @@ import json
 import zlib
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import (BinaryIO, Generator, Hashable, List, Optional, Tuple,
-                    TypeVar)
+from typing import (BinaryIO, Dict, Generator, Hashable, List, Optional, Set,
+                    Tuple, TypeVar)
 
 import click
 import tekore
-from tekore.model import SavedTrack
+from tekore.model import (FullPlaylist, PlaylistTrack, SavedTrack,
+                          SimplePlaylist)
 
 from ..utils import (CONFIG_DIR, PlaylistState, SpotifyID, StyledStr,
                      get_client, log_event, unstyle)
@@ -199,7 +200,62 @@ class Deserializer:
 
     def _deserialize_playlists(self) -> List[PlaylistDelta]:
         # TODO: remember to consider the self.hard option
-        return []
+        deltas = []
+
+        library_owned, library_followed = self._get_library_playlists()
+
+        # Take care of followed playlists
+
+        new_follows, removed_follows = \
+            self._get_followed_diff(library_followed)
+
+        # Restore the followers that have been since removed
+        for playlist_id in removed_follows:
+            dummy = PlaylistState(id=playlist_id)
+            delta = PlaylistDelta(dummy, dummy, ChangeMode.CREATED)
+            deltas.append(delta)
+
+        # If permitted, get rid of the new follows
+        if self.hard:
+            for playlist_id in new_follows:
+                dummy = PlaylistState(id=playlist_id)
+                delta = PlaylistDelta(dummy, dummy, ChangeMode.DELETED)
+                deltas.append(delta)
+
+        # Take care of owned playlists
+
+        backup_owned: Dict[SpotifyID, dict] = {
+            model["id"]: model
+            for model in self.library_json["playlists"]["owned"]
+        }
+
+        library_owned_ids = {playlist.id for playlist in library_owned}
+        backup_owned_ids = set(backup_owned.keys())
+
+        new_playlist_ids = library_owned_ids - backup_owned_ids
+        removed_playlist_ids = backup_owned_ids - library_owned_ids
+        preserved_playlist_ids = library_owned_ids & backup_owned_ids
+
+        # Restore playlists that have been removed since
+        for playlist_id in removed_playlist_ids:
+            json_playlist = backup_owned[playlist_id]
+            delta = self._restore_playlist(json_playlist)
+            deltas.append(delta)
+
+        # If permitted, remove playlists that have been added since
+        if self.hard:
+            for playlist_id in new_playlist_ids:
+                delta = self._remove_playlist(playlist_id)
+                deltas.append(delta)
+
+        # Extract parallel details and compute diff with helper
+        for playlist_id in preserved_playlist_ids:
+            json_playlist = backup_owned[playlist_id]
+            delta = self._get_playlist_diff(json_playlist)
+            if delta is not None:
+                deltas.append(delta)
+
+        return deltas
 
     def _get_saved_tracks_diff(self) -> SavedSongsDelta:
         backup_tracks: List[SpotifyID] = self.library_json["saved"]
@@ -214,6 +270,124 @@ class Deserializer:
         current = PlaylistState(tracks=library_tracks)
         before = PlaylistState(tracks=backup_tracks)
         return SavedSongsDelta(current, before)
+
+    def _get_library_playlists(self) -> Tuple[List[FullPlaylist],
+                                              List[FullPlaylist]]:
+        user_id = self.spotify.current_user().id
+        paging = self.spotify.playlists(user_id)
+        simple_playlists: Generator[SimplePlaylist, None, None] = \
+            self.spotify.all_items(paging)  # type: ignore
+
+        owned_playlists = []
+        followed_playlists = []
+
+        for simple_playlist in simple_playlists:
+            full_playlist = self.spotify.playlist(simple_playlist.id)
+            if full_playlist.id == user_id:  # type: ignore
+                owned_playlists.append(full_playlist)
+            else:
+                followed_playlists.append(full_playlist)
+
+        return (owned_playlists, followed_playlists)
+
+    def _get_followed_diff(self, library_followed: List[FullPlaylist]
+                           ) -> Tuple[Set[SpotifyID], Set[SpotifyID]]:
+        library_follows = {playlist.id for playlist in library_followed}
+        backup_follows: Set[SpotifyID] = \
+            set(self.library_json["playlists"]["followed"])
+
+        new_follows = library_follows - backup_follows
+        removed_follows = backup_follows - library_follows
+        return (new_follows, removed_follows)
+
+    def _get_playlist_diff(self, backup_playlist: dict
+                           ) -> Optional[PlaylistDelta]:
+        playlist_id = backup_playlist["id"]
+
+        library_playlist: FullPlaylist = \
+            self.spotify.playlist(playlist_id)  # type: ignore
+
+        old_name = backup_playlist["name"]
+        new_name = library_playlist.name
+
+        old_description = backup_playlist["description"]
+        new_description = library_playlist.description
+
+        old_photo = backup_playlist["photo"]
+        if library_playlist.images:
+            new_photo = library_playlist.images[0].url
+        else:
+            new_photo = None
+
+        playlist_tracks: Generator[PlaylistTrack, None, None] = \
+            self.spotify.all_items(library_playlist.tracks)  # type: ignore
+
+        library_tracks = [t.track.id for t in playlist_tracks]  # type: ignore
+        backup_tracks = backup_playlist["tracks"]
+
+        original = PlaylistState(playlist_id, old_name, old_description,
+                                 old_photo, library_tracks)  # type: ignore
+        changed = PlaylistState(playlist_id, new_name, new_description,
+                                new_photo, backup_tracks)
+
+        if original == changed:
+            return None
+        return PlaylistDelta(original, changed, ChangeMode.MODIFIED)
+
+    def _restore_playlist(self, json_playlist: dict) -> PlaylistDelta:
+        name = json_playlist["name"]
+        description = json_playlist["description"]
+        photo = json_playlist["photo"]
+        tracks = json_playlist["tracks"]
+
+        user_id = self.spotify.current_user().id
+        new_playlist = self.spotify.playlist_create(user_id=user_id,
+                                                    name=name,
+                                                    description=description,
+                                                    public=True)
+        # NOTE: Maybe add support for creating playlist with custom
+        # visibility (public/private).
+
+        # NOTE: Should also change saving photo from a potentially
+        # transient URL to actually saving the photo locally.
+        if photo is not None:
+            click.secho(f"NOTE: restoring image (URL={photo}) "
+                        "not supported yet.",
+                        fg="black")
+
+        dummy = PlaylistState()
+        changed = PlaylistState(id=new_playlist.id,
+                                name=name,
+                                description=description,
+                                photo=None,
+                                tracks=tracks)
+        return PlaylistDelta(dummy, changed, ChangeMode.CREATED)
+
+    def _remove_playlist(self, playlist_id: SpotifyID) -> PlaylistDelta:
+        # Refactor your damn data structures so you don't have
+        # to re-request this
+        playlist: FullPlaylist = \
+            self.spotify.playlist(playlist_id)  # type: ignore
+
+        # TODO: Maybe refactor this annoying if/else into a helper
+        if playlist.images:
+            photo = playlist.images[0].url
+        else:
+            photo = None
+
+        track_ids = [t.track.id for t in  # type: ignore
+                     self.spotify.all_items(playlist.tracks)]
+
+        # "Deleting" your playlist is the same as unfollowing it
+        self.spotify.playlist_unfollow(playlist_id)
+
+        original = PlaylistState(id=playlist_id,
+                                 name=playlist.name,
+                                 description=playlist.description,
+                                 photo=photo,
+                                 tracks=track_ids)
+        dummy = PlaylistState()
+        return PlaylistDelta(original, dummy, ChangeMode.DELETED)
 
 
 # endregion Type Definitions
