@@ -309,17 +309,19 @@ class Deserializer:
         library_playlist: FullPlaylist = \
             self.spotify.playlist(playlist_id)  # type: ignore
 
-        old_name = backup_playlist["name"]
-        new_name = library_playlist.name
+        # Remember "new"/"old" here look flipped because we are REVERTED
+        # TO the backup.
+        new_name = backup_playlist["name"]
+        old_name = library_playlist.name
 
-        old_description = backup_playlist["description"]
-        new_description = library_playlist.description
+        new_description = backup_playlist["description"]
+        old_description = library_playlist.description
 
-        old_photo = backup_playlist["photo"]
+        new_photo = backup_playlist["photo"]
         if library_playlist.images:
-            new_photo = library_playlist.images[0].url
+            old_photo = library_playlist.images[0].url
         else:
-            new_photo = None
+            old_photo = None
 
         playlist_tracks: Generator[PlaylistTrack, None, None] = \
             self.spotify.all_items(library_playlist.tracks)  # type: ignore
