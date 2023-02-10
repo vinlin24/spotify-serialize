@@ -95,7 +95,7 @@ class LibraryDelta:
             color = None
         return (bullet_point, color)
 
-    def format_delta_summary(self, delta: Delta, hard: bool) -> str:
+    def format_delta_summary(self, delta: Delta, hard: bool) -> StyledStr:
         summary = ""
 
         # Figure out header based on change mode, name change, etc.
@@ -114,13 +114,41 @@ class LibraryDelta:
             name_changed = (mode == ChangeMode.MODIFIED
                             and new_name != old_name)
             if name_changed:
-                striked = click.style(old_name, strikethrough=True, dim=True)
-                header = click.style(f"> {striked} {new_name}")
+                striked = click.style(old_name, bg="red")
+                header = click.style(f"< {striked}\n> {new_name}",
+                                     underline=True)
             else:
                 bullet_point, color = self.get_header_style(mode)
-                header = click.style(f"{bullet_point} {old_name}", fg=color)
+                header = click.style(f"{bullet_point} {old_name}",
+                                     fg=color,
+                                     underline=True)
 
         summary += header
+
+        # Figure out metadata changes (description, photo, etc.)
+
+        # TODO: Maybe refactor your data structures or create a helper
+        # to reduce unpacking boilerplate like this
+        old_description = delta.original.description or ""
+        new_description = delta.changed.description or ""
+
+        old_photo = delta.original.photo
+        new_photo = delta.changed.photo
+
+        if old_description == new_description and old_photo == new_photo:
+            pass  # Don't display anything in this segment
+        else:
+            if new_description != old_description:
+                striked = click.style(old_description, bg="red")
+                lines = [
+                    "Changed description:",
+                    f"<<< {striked}",
+                    f">>> {new_description}"
+                ]
+                s = "\n".join(f"  {line}" for line in lines)
+                summary += f"\n{s}"
+            if new_photo != old_photo:
+                summary += "\n  Changed photo."
 
         # Figure out the additions, deletions, total size change, etc.
 
@@ -131,7 +159,7 @@ class LibraryDelta:
         deletions_allowed = hard
         if num_saved_adds == 0 and \
                 (not deletions_allowed or num_saved_dels == 0):
-            summary += f"\n  No change! {old_size} total track(s)"
+            summary += f"\n  No tracks changed! {old_size} total track(s)"
 
         else:
             new_size = old_size + num_saved_adds
@@ -166,8 +194,7 @@ class LibraryDelta:
             playlist_summaries.append(playlist_summary)
         playlists_summary = "\n".join(playlist_summaries)
 
-        summary += liked_songs_summary
-        summary += playlists_summary
+        summary += f"{liked_songs_summary}\n{playlists_summary}"
         return summary
 
     def get_full(self) -> StyledStr:
