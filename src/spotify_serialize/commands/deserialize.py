@@ -101,8 +101,9 @@ class LibraryDelta:
 
         old_name = delta.original.name
         new_name = delta.changed.name
+        playlist_id = delta.original.id
 
-        is_liked_songs = (old_name is None and new_name is None)
+        is_liked_songs = (playlist_id is None)
         if is_liked_songs:
             header = click.style("* Liked Songs", fg="black", bg="white")
         else:
