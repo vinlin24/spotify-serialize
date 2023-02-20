@@ -124,7 +124,12 @@ def serialize_command(output: BinaryIO,
 
     # If the user wants to keep the JSON data alongside the binary
     if with_json:
-        json_path = Path(Path(output.name).stem + ".json")
+        # Create it in the same directory and replace the extension (if
+        # exists) with .json.
+        dir_path = Path(output.name).parent
+        output_stem = Path(output.name).stem
+        json_path = dir_path / Path(output_stem + ".json")
+
         if json_path.exists():
             click.secho(f"Cannot create a JSON copy at {json_path} because it "
                         f"already exists. Binary file {output.name} is fine.",
