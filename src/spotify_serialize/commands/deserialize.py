@@ -515,5 +515,6 @@ def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
         click.echo(summary_details)
     click.echo()
 
-    # In any case, write the full details to the log file
-    write_to_log(full_details)
+    # In any case, write the full details to the log file.  TODO: I set
+    # this to summary for now because I have not implemented full yet.
+    write_to_log(summary_details)
