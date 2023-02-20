@@ -283,6 +283,7 @@ class Deserializer:
             delta = self._get_playlist_diff(json_playlist)
             if delta is not None:
                 deltas.append(delta)
+                self._update_playlist(delta)
 
         return deltas
 
@@ -420,6 +421,41 @@ class Deserializer:
         dummy = PlaylistState()
         return PlaylistDelta(original, dummy, ChangeMode.DELETED)
 
+    def _update_playlist(self, delta: PlaylistDelta) -> None:
+        playlist_id: str = delta.changed.id  # type: ignore
+
+        new_name: str = delta.changed.name  # type: ignore
+        new_description: str = delta.changed.description  # type: ignore
+
+        self.spotify.playlist_change_details(playlist_id,
+                                             name=new_name,
+                                             description=new_description)
+
+        for track_id in delta.additions:
+            try:
+                self.spotify.playlist_add(playlist_id, [track_id])
+            except tekore.BadRequest as error:
+                delta.additions.remove(track_id)
+                click.secho(f"ERROR: Failed to add track (ID: {track_id}) "
+                            f"to playlist (ID: {playlist_id}).",
+                            fg="red", err=True)
+                click.echo(error, err=True)
+                continue
+
+        if not self.hard:
+            return
+
+        for track_id in delta.deletions:
+            try:
+                self.spotify.playlist_remove(playlist_id, [track_id])
+            except tekore.BadRequest as error:
+                delta.deletions.remove(track_id)
+                click.secho(f"ERROR: Failed to remove track (ID: {track_id}) "
+                            f"from playlist (ID: {playlist_id}).",
+                            fg="red", err=True)
+                click.echo(error, err=True)
+                continue
+
 
 # endregion Type Definitions
 
@@ -472,13 +508,14 @@ def get_list_diff(list1: List[T], list2: List[T]) -> List[T]:
 @click.option("-v", "--verbose", is_flag=True)
 @click.option("-f", "--force", is_flag=True)
 # pylint: disable=redefined-builtin
-def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
+def deserialize_command(input: BinaryIO, hard: bool, verbose: bool, force: bool
+                        ) -> None:
     spotify = get_client()
 
     prompt_confirmation()
 
-    if hard:
     if hard and not force:
+        prompt_hard_confirmation()
         create_backup(Serializer(spotify))
 
     # TODO: Make compression/decompression into own subroutines?
