@@ -470,6 +470,7 @@ def get_list_diff(list1: List[T], list2: List[T]) -> List[T]:
               type=click.File("rb", encoding="utf-8"))
 @click.option("-h", "--hard", is_flag=True)
 @click.option("-v", "--verbose", is_flag=True)
+@click.option("-f", "--force", is_flag=True)
 # pylint: disable=redefined-builtin
 def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
     spotify = get_client()
@@ -477,7 +478,7 @@ def deserialize_command(input: BinaryIO, hard: bool, verbose: bool) -> None:
     prompt_confirmation()
 
     if hard:
-        prompt_hard_confirmation()
+    if hard and not force:
         create_backup(Serializer(spotify))
 
     # TODO: Make compression/decompression into own subroutines?
