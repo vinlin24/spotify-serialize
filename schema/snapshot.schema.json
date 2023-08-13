@@ -28,7 +28,17 @@
       "type": "array",
       "description": "Other users' playlists that the user follows.",
       "items": {
-        "$ref": "playlist.schema.json"
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "playlist.schema.json"
+          }
+        ],
+        "properties": {
+          "owner": {
+            "$ref": "user.schema.json"
+          }
+        }
       }
     }
   }
