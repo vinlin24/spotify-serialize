@@ -73,6 +73,8 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
     # TODO: somehow decouple progressbar from conversion function
     iterator: Iterator[tekore.model.PlaylistTrack]
     tracks: List[JSONData] = []
+    skipped: List[Track] = []
+
     with click.progressbar(
         track_iterator,
         label=full_playlist.name,
@@ -82,8 +84,13 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
     ) as iterator:
         for track in iterator:
             data = track_model_to_json(track)
-            if data is not None:
+            if data is None:
+                skipped.append(track)
+            else:
                 tracks.append(data)
+
+    if skipped:
+        warn_about_skipped_tracks(skipped)
 
     return {
         "id": full_playlist.id,
@@ -91,6 +98,14 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
         "description": full_playlist.description or None,
         "tracks": tracks
     }
+
+
+def warn_about_skipped_tracks(tracks: List[Track]) -> None:
+    click.secho("WARNING: ", nl=False, fg="yellow", bold=True)
+    click.secho("Was unable to gather data for the following tracks:",
+                fg="yellow")
+    for track in tracks:
+        click.secho(track)
 
 
 class Serializer:
@@ -121,6 +136,8 @@ class Serializer:
 
         iterator: Iterator[tekore.model.SavedTrack]
         saved_songs: List[JSONData] = []
+        skipped: List[Track] = []
+
         with click.progressbar(
             saved_track_iterator,
             label="Gathering data for saved songs",
@@ -130,8 +147,14 @@ class Serializer:
         ) as iterator:
             for saved_track in iterator:
                 data = track_model_to_json(saved_track)
-                if data is not None:
+                if data is None:
+                    skipped.append(saved_track)
+                else:
                     saved_songs.append(data)
+
+        if skipped:
+            warn_about_skipped_tracks(skipped)
+
         return saved_songs
 
     def _serialize_playlists(self) -> Tuple[List[JSONData],
