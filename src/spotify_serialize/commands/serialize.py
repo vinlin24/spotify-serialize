@@ -4,7 +4,8 @@ Implement serializing the user's library into a compressed data format.
 """
 
 import json
-from typing import Any, Dict, Generator, Iterator, List, TextIO, Tuple, Union
+from typing import (Any, Dict, Generator, Iterator, List, Optional, TextIO,
+                    Tuple, Union)
 
 import click
 import tekore
@@ -32,12 +33,18 @@ def user_model_to_json(user: User) -> JSONData:
 Track = Union[tekore.model.SavedTrack, tekore.model.PlaylistTrack]
 
 
-def track_model_to_json(track: Track) -> JSONData:
+def track_model_to_json(track: Track) -> Optional[JSONData]:
     """
     Convert a tekore track model to the format of track.model.json.
     """
-    _track: Union[tekore.model.FullTrack, tekore.model.FullPlaylistTrack]
+    _track: Union[tekore.model.FullTrack, tekore.model.FullPlaylistTrack, None]
     _track = track.track  # type: ignore
+    # TODO: stuff like episodes, etc. not supported yet
+    if hasattr(_track, "track") and not _track.track:  # type: ignore
+        return None
+    # NOTE: for some reason, _track can be None
+    if _track is None:
+        return None
     return {
         "id": _track.id,
         "name": _track.name,
@@ -63,16 +70,26 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
     track_iterator: Generator[tekore.model.PlaylistTrack, None, None]
     track_iterator = spotify.all_items(paging)  # type: ignore
 
-    # NOTE: I don't know why, but for some reason the iterator has to be
-    # iterated through once beforehand for the comprehension below to
-    # work.  Maybe something to do with the click.progressbar()?
-    list(track_iterator)
+    # TODO: somehow decouple progressbar from conversion function
+    iterator: Iterator[tekore.model.PlaylistTrack]
+    tracks: List[JSONData] = []
+    with click.progressbar(
+        track_iterator,
+        label=full_playlist.name,
+        length=paging.total,
+        show_pos=True,
+        show_percent=True,
+    ) as iterator:
+        for track in iterator:
+            data = track_model_to_json(track)
+            if data is not None:
+                tracks.append(data)
 
     return {
         "id": full_playlist.id,
         "name": full_playlist.name,
         "description": full_playlist.description or None,
-        "tracks": [track_model_to_json(track) for track in track_iterator]
+        "tracks": tracks
     }
 
 
@@ -94,7 +111,7 @@ class Serializer:
     def _serialize_profile(self) -> JSONData:
         user = self.spotify.current_user()
         data = user_model_to_json(user)
-        click.secho("Gathered data for user profile", dim=True)
+        click.secho("Gathered data for user profile")
         return data
 
     def _serialize_saved_songs(self) -> List[JSONData]:
@@ -102,14 +119,20 @@ class Serializer:
         saved_track_iterator: Generator[tekore.model.SavedTrack, None, None]
         saved_track_iterator = self.spotify.all_items(paging)  # type: ignore
 
-        click.secho("Gathering data for saved songs...", dim=True)
         iterator: Iterator[tekore.model.SavedTrack]
-        with click.progressbar(saved_track_iterator) as iterator:
-            data = [track_model_to_json(saved_track)
-                    for saved_track in iterator]
-        click.secho("Gathered data for saved songs", dim=True)
-
-        return data
+        saved_songs: List[JSONData] = []
+        with click.progressbar(
+            saved_track_iterator,
+            label="Gathering data for saved songs",
+            length=paging.total,
+            show_pos=True,
+            show_percent=True,
+        ) as iterator:
+            for saved_track in iterator:
+                data = track_model_to_json(saved_track)
+                if data is not None:
+                    saved_songs.append(data)
+        return saved_songs
 
     def _serialize_playlists(self) -> Tuple[List[JSONData],
                                             List[JSONData]]:
@@ -131,20 +154,19 @@ class Serializer:
         owned: List[JSONData] = []
         followed: List[JSONData] = []
 
-        click.secho("Gathering data for playlists...", dim=True)
-        iterator: Iterator[tekore.model.SimplePlaylist]
-        with click.progressbar(playlist_iterator) as iterator:
-            for simple_playlist in iterator:
-                data = playlist_model_to_json(simple_playlist, self.spotify)
-                owner_id = simple_playlist.owner.id
-                if owner_id == user_id:
-                    owned.append(data)
-                else:
-                    # Extend data with information about the owner
-                    data["owner"] = user_model_to_json(simple_playlist.owner)
-                    followed.append(data)
-        click.secho("Gathered data for playlists", dim=True)
+        click.secho("Gathering data for playlists...")
 
+        for simple_playlist in playlist_iterator:
+            data = playlist_model_to_json(simple_playlist, self.spotify)
+            owner_id = simple_playlist.owner.id
+            if owner_id == user_id:
+                owned.append(data)
+            else:
+                # Extend data with information about the owner
+                data["owner"] = user_model_to_json(simple_playlist.owner)
+                followed.append(data)
+
+        click.secho("Gathered data for playlists")
         return (owned, followed)
 
 
