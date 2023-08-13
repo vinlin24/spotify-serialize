@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Playlist",
+  "description": "Playlist information to save.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "description": "Spotify ID of this playlist."
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of this playlist."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "This playlist's description, if given one."
+    },
+    "tracks": {
+      "type": "array",
+      "description": "Tracks within this playlist.",
+      "items": {
+        "$ref": "track.json"
+      }
+    }
+  }
+}

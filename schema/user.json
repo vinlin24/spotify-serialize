@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "User",
+  "description": "User information to save.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "description": "Spotify ID of this user."
+    },
+    "displayName": {
+      "type": "string",
+      "description": "This user's display name."
+    },
+    "numFollowers": {
+      "type": "number",
+      "description": "The user's current number of followers."
+    }
+  }
+}
