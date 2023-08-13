@@ -197,9 +197,12 @@ class Serializer:
 @click.option("-o", "--output",
               required=True,
               type=click.File(mode="wt", encoding="utf-8"))
-def serialize_command(output: TextIO) -> None:
+@click.option("-i", "--indent",
+              type=int,
+              default=2)
+def serialize_command(output: TextIO, indent: int) -> None:
     spotify = get_client()
     click.secho(f"Serializing your library to JSON...", fg="green")
     library_json = Serializer(spotify).serialize()
-    json.dump(library_json, output)
+    json.dump(library_json, output, indent=indent)
     click.secho(f"Saved your library at {output.name}", fg="green")
