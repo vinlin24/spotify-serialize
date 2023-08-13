@@ -16,8 +16,11 @@
       "description": "This user's display name."
     },
     "numFollowers": {
-      "type": "number",
-      "description": "The user's current number of followers."
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "The user's current number of followers, if available."
     }
   }
 }
