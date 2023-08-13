@@ -5,8 +5,12 @@ Entry point for command line interface.
 
 import click
 
+from . import CONFIG_DIR
 from .commands import deserialize_command, login_command, serialize_command
-from .utils import ensure_config_dir
+
+
+def ensure_config_dir() -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @click.group()
