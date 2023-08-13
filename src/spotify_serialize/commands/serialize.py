@@ -4,15 +4,17 @@ Implement serializing the user's library into a compressed data format.
 """
 
 import json
+from datetime import datetime
+from pathlib import Path
 from typing import (Any, Dict, Generator, Iterator, List, Optional, TextIO,
                     Tuple, Union)
 
 import click
+import requests
 import tekore
 
+from .. import abort_with_error
 from ..client import get_client
-
-# TODO: handle downloading images
 
 JSONData = Dict[str, Any]
 
@@ -100,31 +102,62 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
     }
 
 
-def warn_about_skipped_tracks(tracks: List[Track]) -> None:
+def echo_warning(message: str) -> None:
     click.secho("WARNING: ", nl=False, fg="yellow", bold=True)
-    click.secho("Was unable to gather data for the following tracks:",
-                fg="yellow")
+    click.secho(message, fg="yellow")
+
+
+def warn_about_skipped_tracks(tracks: List[Track]) -> None:
+    echo_warning("Was unable to gather data for the following tracks:")
     for track in tracks:
         click.secho(track)
+
+
+def download_image(url: str, dest_path: Path) -> bool:
+    response = requests.get(url)
+    if not response.ok:
+        echo_warning(f"Was unable to download image at {url} to {dest_path}.")
+        return False
+    data = response.content
+    with dest_path.open("wb") as dest_file:
+        dest_file.write(data)
+    return True
 
 
 class Serializer:
     def __init__(self, spotify: tekore.Spotify) -> None:
         self.spotify = spotify
 
-    def serialize(self) -> JSONData:
-        user_data = self._serialize_profile()
+    def serialize(self, output_dir: Path, indent: int) -> None:
+        output_dir.mkdir(parents=True)
+        images_dir = output_dir / "images"
+        images_dir.mkdir()
+
+        user_data = self._serialize_profile(images_dir)
         saved_songs = self._serialize_saved_songs()
-        owned_playlists, followed_playlists = self._serialize_playlists()
-        return {
+        owned_playlists, followed_playlists = \
+            self._serialize_playlists(images_dir)
+
+        timestamp = datetime.now().isoformat()
+        timestamp_path = output_dir / "TIMESTAMP"
+        timestamp_path.write_text(timestamp)
+
+        json_data = {
             "user": user_data,
             "likedSongs": saved_songs,
             "ownedPlaylists": owned_playlists,
             "followedPlaylists": followed_playlists,
         }
 
-    def _serialize_profile(self) -> JSONData:
+        json_path = output_dir / "data.json"
+        with json_path.open("wt", encoding="utf-8") as json_file:
+            json.dump(json_data, json_file, indent=indent)
+
+    def _serialize_profile(self, images_dir: Path) -> JSONData:
         user = self.spotify.current_user()
+        image = user.images[-1] if user.images else None
+        if image is not None:
+            download_image(image.url, images_dir / "profile.png")
         data = user_model_to_json(user)
         click.secho("Gathered data for user profile")
         return data
@@ -157,8 +190,8 @@ class Serializer:
 
         return saved_songs
 
-    def _serialize_playlists(self) -> Tuple[List[JSONData],
-                                            List[JSONData]]:
+    def _serialize_playlists(self, images_dir: Path) -> Tuple[List[JSONData],
+                                                              List[JSONData]]:
         """
         Return a 2-tuple with data for the owned playlists and followed
         playlists.
@@ -168,6 +201,11 @@ class Serializer:
         followed -- instead of individually, so this way we only make
         one API call.
         """
+        owned_images = images_dir / "owned-playlists"
+        followed_images = images_dir / "followed-playlists"
+        owned_images.mkdir()
+        followed_images.mkdir()
+
         user_id = self.spotify.current_user().id
 
         paging = self.spotify.playlists(user_id)
@@ -179,6 +217,16 @@ class Serializer:
 
         click.secho("Gathering data for playlists...")
 
+        def _download_image(playlist: tekore.model.SimplePlaylist, user: bool):
+            if not playlist.images:
+                return
+            image = playlist.images[-1]
+            if user:
+                path = owned_images / f"{playlist.id}.png"
+            else:
+                path = followed_images / f"{playlist.id}.png"
+            download_image(image.url, path)
+
         for simple_playlist in playlist_iterator:
             data = playlist_model_to_json(simple_playlist, self.spotify)
             owner_id = simple_playlist.owner.id
@@ -188,6 +236,7 @@ class Serializer:
                 # Extend data with information about the owner
                 data["owner"] = user_model_to_json(simple_playlist.owner)
                 followed.append(data)
+            _download_image(simple_playlist, owner_id == user_id)
 
         click.secho("Gathered data for playlists")
         return (owned, followed)
@@ -196,13 +245,16 @@ class Serializer:
 @click.command("serialize")
 @click.option("-o", "--output",
               required=True,
-              type=click.File(mode="wt", encoding="utf-8"))
+              type=click.Path(path_type=Path))
 @click.option("-i", "--indent",
               type=int,
               default=2)
-def serialize_command(output: TextIO, indent: int) -> None:
+def serialize_command(output: Path, indent: int) -> None:
     spotify = get_client()
+    if output.exists():
+        abort_with_error(f"{output} already exists!")
+
     click.secho(f"Serializing your library to JSON...", fg="green")
-    library_json = Serializer(spotify).serialize()
-    json.dump(library_json, output, indent=indent)
+    serializer = Serializer(spotify)
+    serializer.serialize(output, indent)
     click.secho(f"Saved your library at {output.name}", fg="green")
