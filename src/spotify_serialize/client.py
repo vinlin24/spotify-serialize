@@ -9,7 +9,7 @@ from typing import Tuple
 import click
 import tekore
 
-from . import CONFIG_DIR
+from . import CONFIG_DIR, abort_with_error
 
 CLIENT_ID = "2ab65a4aa7f1406a859eef2cbe28ac9e"
 REDIRECT_URI = "https://google.com"
@@ -37,7 +37,7 @@ def refresh_access_token(refresh_token: str) -> Tuple[str, str]:
 
 def get_client() -> tekore.Spotify:
     if not CREDS_PATH.exists():
-        raise click.Abort(f"{CREDS_PATH} doesn't exist") from None
+        abort_with_error(f"{CREDS_PATH} doesn't exist")
 
     with CREDS_PATH.open("rt", encoding="utf-8") as creds_file:
         data = json.load(creds_file)
@@ -46,9 +46,7 @@ def get_client() -> tekore.Spotify:
         access_token = data["access_token"]
         refresh_token = data["refresh_token"]
     except KeyError as exc:
-        raise click.Abort(
-            f"missing key {exc.args[0]!r} in {CREDS_PATH}"
-        ) from None
+        abort_with_error(f"missing key {exc.args[0]!r} in {CREDS_PATH}")
 
     spotify = tekore.Spotify(access_token)
 
