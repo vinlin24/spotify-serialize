@@ -13,8 +13,7 @@ import tekore
 
 from .. import CONFIG_DIR, abort_with_error
 from ..client import get_client
-from ..schema import (PlaylistJSON, SnapshotJSON, SpotifyID, SpotifyURI,
-                      TrackJSON)
+from ..schema import PlaylistJSON, SnapshotJSON, SpotifyURI, TrackJSON
 from .serialize import Serializer
 
 DESERIALIZE_NOTICE = (
@@ -22,11 +21,6 @@ DESERIALIZE_NOTICE = (
     "current state of your Spotify library. Proceed?"
 )
 BACKUP_DIR = CONFIG_DIR / "backups"
-
-
-def ids_to_uris(track_ids: Set[SpotifyID]) -> List[SpotifyURI]:
-    return [tekore.to_uri(track_id, "")
-            for track_id in track_ids]
 
 
 class Deserializer:
