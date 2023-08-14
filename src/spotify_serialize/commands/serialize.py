@@ -6,6 +6,7 @@ Implement serializing the user's library into a compressed data format.
 import json
 from datetime import datetime
 from pathlib import Path
+from turtle import update
 from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
 
 import click
@@ -14,19 +15,21 @@ import tekore
 
 from .. import abort_with_error
 from ..client import get_client
+from ..schema import (FollowedPlaylistJSON, PlaylistJSON, SnapshotJSON,
+                      TrackJSON, UserJSON)
 
 JSONData = Dict[str, Any]
 
 User = Union[tekore.model.PublicUser, tekore.model.PrivateUser]
 
 
-def user_model_to_json(user: User) -> JSONData:
+def user_model_to_json(user: User) -> UserJSON:
     """
     Convert a tekore user model to the format of user.schema.json.
     """
     return {
         "id": user.id,
-        "displayName": user.display_name,
+        "displayName": user.display_name or "",
         "numFollowers": user.followers and user.followers.total,
     }
 
@@ -34,7 +37,7 @@ def user_model_to_json(user: User) -> JSONData:
 Track = Union[tekore.model.SavedTrack, tekore.model.PlaylistTrack]
 
 
-def track_model_to_json(track: Track) -> Optional[JSONData]:
+def track_model_to_json(track: Track) -> Optional[TrackJSON]:
     """
     Convert a tekore track model to the format of track.model.json.
     """
@@ -53,7 +56,7 @@ def track_model_to_json(track: Track) -> Optional[JSONData]:
         track_type = "track"
 
     return {
-        "id": _track.id,
+        "id": _track.id or "",
         "name": _track.name,
         "artists": artists,
         "addedAt": track.added_at.isoformat(),
@@ -65,7 +68,7 @@ Playlist = tekore.model.SimplePlaylist
 
 
 def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
-                           ) -> JSONData:
+                           ) -> PlaylistJSON:
     """
     Convert a tekore playlist model to the format of
     playlist.schema.json.
@@ -80,7 +83,7 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
 
     # TODO: somehow decouple progressbar from conversion function
     iterator: Iterator[tekore.model.PlaylistTrack]
-    tracks: List[JSONData] = []
+    tracks: List[TrackJSON] = []
     skipped: List[Track] = []
 
     with click.progressbar(
@@ -154,7 +157,7 @@ class Serializer:
         timestamp_path = output_dir / "TIMESTAMP"
         timestamp_path.write_text(timestamp)
 
-        json_data = {
+        json_data: SnapshotJSON = {
             "user": user_data,
             "likedSongs": saved_songs,
             "ownedPlaylists": owned_playlists,
@@ -167,7 +170,7 @@ class Serializer:
 
         return output_dir
 
-    def _serialize_profile(self, images_dir: Path) -> JSONData:
+    def _serialize_profile(self, images_dir: Path) -> UserJSON:
         user = self.spotify.current_user()
         if self.with_images:
             image = user.images[-1] if user.images else None
@@ -177,13 +180,13 @@ class Serializer:
         click.secho("Gathered data for user profile")
         return data
 
-    def _serialize_saved_songs(self) -> List[JSONData]:
+    def _serialize_saved_songs(self) -> List[TrackJSON]:
         paging = self.spotify.saved_tracks()
         saved_track_iterator: Generator[tekore.model.SavedTrack, None, None]
         saved_track_iterator = self.spotify.all_items(paging)  # type: ignore
 
         iterator: Iterator[tekore.model.SavedTrack]
-        saved_songs: List[JSONData] = []
+        saved_songs: List[TrackJSON] = []
         skipped: List[Track] = []
 
         with click.progressbar(
@@ -205,8 +208,9 @@ class Serializer:
 
         return saved_songs
 
-    def _serialize_playlists(self, images_dir: Path) -> Tuple[List[JSONData],
-                                                              List[JSONData]]:
+    def _serialize_playlists(self, images_dir: Path
+                             ) -> Tuple[List[PlaylistJSON],
+                                        List[FollowedPlaylistJSON]]:
         """
         Return a 2-tuple with data for the owned playlists and followed
         playlists.
@@ -228,8 +232,8 @@ class Serializer:
         playlist_iterator: Generator[tekore.model.SimplePlaylist, None, None]
         playlist_iterator = self.spotify.all_items(paging)  # type: ignore
 
-        owned: List[JSONData] = []
-        followed: List[JSONData] = []
+        owned: List[PlaylistJSON] = []
+        followed: List[FollowedPlaylistJSON] = []
 
         click.secho("Gathering data for playlists...")
 
@@ -248,11 +252,14 @@ class Serializer:
             owner_id = simple_playlist.owner.id
 
             if owner_id == user_id:
-                owned.append(data)
+                owned_playlist: PlaylistJSON = data
+                owned.append(owned_playlist)
             else:
                 # Extend data with information about the owner
-                data["owner"] = user_model_to_json(simple_playlist.owner)
-                followed.append(data)
+                owner_data = user_model_to_json(simple_playlist.owner)
+                followed_playlist: FollowedPlaylistJSON = data  # type: ignore
+                followed_playlist["owner"] = owner_data
+                followed.append(followed_playlist)
 
             if self.with_images:
                 _download_image(simple_playlist, owner_id == user_id)
