@@ -6,13 +6,14 @@ Implement deserializing the serialized data into the user's library.
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Generator, List, Optional, Set
 
 import click
 import tekore
 
 from .. import CONFIG_DIR, abort_with_error
 from ..client import get_client
-from ..schema import PlaylistJSON, SnapshotJSON
+from ..schema import PlaylistJSON, SnapshotJSON, SpotifyID, TrackJSON
 from .serialize import Serializer
 
 DESERIALIZE_NOTICE = (
@@ -21,13 +22,104 @@ DESERIALIZE_NOTICE = (
 )
 BACKUP_DIR = CONFIG_DIR / "backups"
 
+SpotifyURI = str
+
+
+def ids_to_uris(track_ids: Set[SpotifyID]) -> List[SpotifyURI]:
+    return [tekore.to_uri(track_id, "")
+            for track_id in track_ids]
+
 
 class Deserializer:
     def __init__(self, spotify: tekore.Spotify) -> None:
         self.spotify = spotify
 
-    def deserialize(self, playlist: PlaylistJSON) -> None:
-        click.secho(playlist)  # TODO
+    def deserialize(self, playlist_data: PlaylistJSON) -> None:
+        playlist = self._get_current_playlist(playlist_data["id"])
+
+        # Playlist doesn't exist anymore, so create it first
+        if playlist is None:
+            user_id = self.spotify.current_user().id
+            playlist = self.spotify.playlist_create(
+                user_id=user_id,
+                name=playlist_data["name"],
+                public=True,
+                description=playlist_data["description"] or "",
+            )
+
+        track_data: List[TrackJSON] = playlist_data["tracks"]
+        current_uris = self._get_playlist_tracks(playlist)
+        incoming_uris = self._get_data_tracks(track_data)
+
+        uris_to_add = incoming_uris - current_uris
+        uris_to_remove = current_uris - incoming_uris
+
+        if len(uris_to_add) == 0:
+            click.echo(f"No tracks to add to {playlist.name!r}")
+        else:
+            self.spotify.playlist_add(
+                playlist_id=playlist.id,
+                uris=list(uris_to_add),
+            )
+            click.secho(
+                f"Added {len(uris_to_add)} tracks to {playlist.name!r}",
+                fg="green"
+            )
+
+        if len(uris_to_remove) == 0:
+            click.echo(f"No tracks to remove from {playlist.name!r}")
+        else:
+            self.spotify.playlist_remove(
+                playlist_id=playlist.id,
+                uris=list(uris_to_remove),
+            )
+            click.secho(
+                f"Removed {len(uris_to_remove)} tracks from {playlist.name!r}",
+                fg="red"
+            )
+
+    def _get_current_playlist(self, playlist_id
+                              ) -> Optional[tekore.model.FullPlaylist]:
+        try:
+            playlist: tekore.model.FullPlaylist
+            playlist = self.spotify.playlist(playlist_id)  # type: ignore
+        except tekore.NotFound:
+            return None
+
+        # Shouldn't happen but oh well
+        if playlist.owner.id != self.spotify.current_user().id:
+            abort_with_error(
+                f"Playlist with {playlist_id=} doesn't belong to you"
+            )
+
+        return playlist
+
+    def _get_playlist_tracks(self, playlist: tekore.model.FullPlaylist
+                             ) -> Set[SpotifyURI]:
+        paging = playlist.tracks
+        track_iterator: Generator[tekore.model.PlaylistTrack, None, None]
+        track_iterator = self.spotify.all_items(paging)  # type: ignore
+
+        result: Set[SpotifyURI] = set()
+        for track in track_iterator:
+            _track = track.track
+            if _track is None:  # Still don't know why this can happen
+                continue
+            track_id: str = _track.id  # type: ignore
+            # NOTE: must use URIs instead of IDs for playlist operations
+            uri = tekore.to_uri(
+                "episode" if _track.episode else "track",
+                track_id,
+            )
+            result.add(uri)
+        return result
+
+    def _get_data_tracks(self, track_data: List[TrackJSON]
+                         ) -> Set[SpotifyURI]:
+        return {
+            tekore.to_uri(track["type"], track["id"])
+            for track in track_data
+        }
 
 
 def prompt_confirmation() -> None:
