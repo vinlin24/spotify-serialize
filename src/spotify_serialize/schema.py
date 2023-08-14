@@ -1,14 +1,16 @@
 from typing import List, Literal, Optional, TypedDict
 
+SpotifyID = str
+
 
 class UserJSON(TypedDict):
-    id: str
+    id: SpotifyID
     displayName: str
     numFollowers: Optional[int]
 
 
 class TrackJSON(TypedDict):
-    id: str
+    id: SpotifyID
     name: str
     artists: List[str]
     addedAt: Optional[str]
@@ -16,7 +18,7 @@ class TrackJSON(TypedDict):
 
 
 class PlaylistJSON(TypedDict):
-    id: str
+    id: SpotifyID
     name: str
     description: Optional[str]
     tracks: List[TrackJSON]
