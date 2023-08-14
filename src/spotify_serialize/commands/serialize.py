@@ -175,7 +175,7 @@ class Serializer:
         if self.with_images:
             image = user.images[-1] if user.images else None
             if image is not None:
-                download_image(image.url, images_dir / "profile.png")
+                download_image(image.url, images_dir / "profile.jpg")
         data = user_model_to_json(user)
         click.secho("Gathered data for user profile")
         return data
@@ -242,9 +242,9 @@ class Serializer:
                 return
             image = playlist.images[-1]
             if user:
-                path = owned_images / f"{playlist.id}.png"
+                path = owned_images / f"{playlist.id}.jpg"
             else:
-                path = followed_images / f"{playlist.id}.png"
+                path = followed_images / f"{playlist.id}.jpg"
             download_image(image.url, path)
 
         for simple_playlist in playlist_iterator:
