@@ -38,18 +38,22 @@ def track_model_to_json(track: Track) -> Optional[JSONData]:
     """
     Convert a tekore track model to the format of track.model.json.
     """
-    _track: Union[tekore.model.FullTrack, tekore.model.FullPlaylistTrack, None]
     _track = track.track  # type: ignore
-    # TODO: stuff like episodes, etc. not supported yet
-    if hasattr(_track, "track") and not _track.track:  # type: ignore
-        return None
+
     # NOTE: for some reason, _track can be None
     if _track is None:
         return None
+
+    # Episodes don't have artists
+    if isinstance(_track, tekore.model.FullEpisode):
+        artists = []
+    else:
+        artists = [artist.name for artist in _track.artists]
+
     return {
         "id": _track.id,
         "name": _track.name,
-        "artists": [artist.name for artist in _track.artists],
+        "artists": artists,
         "addedAt": track.added_at.isoformat()
     }
 
