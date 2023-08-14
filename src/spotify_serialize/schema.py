@@ -1,6 +1,7 @@
 from typing import List, Literal, Optional, TypedDict
 
 SpotifyID = str
+SpotifyURI = str
 
 
 class UserJSON(TypedDict):
