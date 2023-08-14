@@ -111,9 +111,7 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
 
 
 def warn_about_skipped_tracks(tracks: List[Track]) -> None:
-    echo_warning("Was unable to gather data for the following tracks:")
-    for track in tracks:
-        click.secho(track)
+    echo_warning(f"Was unable to gather data for {len(tracks)} tracks")
 
 
 def download_image(url: str, dest_path: Path) -> bool:
