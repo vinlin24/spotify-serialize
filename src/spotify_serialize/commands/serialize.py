@@ -47,14 +47,17 @@ def track_model_to_json(track: Track) -> Optional[JSONData]:
     # Episodes don't have artists
     if isinstance(_track, tekore.model.FullEpisode):
         artists = []
+        track_type = "episode"
     else:
         artists = [artist.name for artist in _track.artists]
+        track_type = "track"
 
     return {
         "id": _track.id,
         "name": _track.name,
         "artists": artists,
-        "addedAt": track.added_at.isoformat()
+        "addedAt": track.added_at.isoformat(),
+        "type": track_type,
     }
 
 

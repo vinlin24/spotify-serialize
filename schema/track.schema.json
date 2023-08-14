@@ -29,6 +29,14 @@
       ],
       "description": "When this track was added to a particular listing, if applicable.",
       "format": "date-time"
+    },
+    "type": {
+      "type": "string",
+      "description": "The type of track (track, episode, etc.).",
+      "enum": [
+        "track",
+        "episode"
+      ]
     }
   }
 }
