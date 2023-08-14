@@ -6,7 +6,7 @@ Implement deserializing the serialized data into the user's library.
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
+from typing import Generator, List, NamedTuple, Optional, Sequence, Tuple
 
 import click
 import tekore
@@ -22,22 +22,36 @@ DESERIALIZE_NOTICE = (
 )
 BACKUP_DIR = CONFIG_DIR / "backups"
 
-T = TypeVar("T")
+
+class URINamePair(NamedTuple):
+    uri: SpotifyURI
+    name: str
 
 
-def get_diff(before: Sequence[T], after: Sequence[T]
-             ) -> Tuple[List[T], List[T]]:
+ADDITION_MARK = click.style("+", fg="green", bold=True)
+DELETION_MARK = click.style("-", fg="red", bold=True)
+
+
+def get_diff(before: Sequence[URINamePair],
+             after: Sequence[URINamePair],
+             ) -> Tuple[List[URINamePair],
+                        List[URINamePair]]:
     """
     Return a 2-tuple containing the additions and deletions to get from
     `before` to `after`, preserving relative order of items such that:
 
     * Items in the additions are in the order they appear in `after`.
     * Items in the deletions are in the order they appear in `before`.
+
+    Items within each collection are `URINamePair`s, which are a way to
+    keep a Spotify URI (what we're diff-ing with) with its corresponding
+    name for display purposes such that we don't need to perform
+    subsequent API calls/data traversal.
     """
-    before_set = set(before)
-    after_set = set(after)
-    additions = [item for item in after if item not in before_set]
-    deletions = [item for item in before if item not in after_set]
+    before_set = set(pair.uri for pair in before)
+    after_set = set(pair.uri for pair in after)
+    additions = [pair for pair in after if pair.uri not in before_set]
+    deletions = [pair for pair in before if pair.uri not in after_set]
     return (additions, deletions)
 
 
@@ -62,31 +76,33 @@ class Deserializer:
         current_uris = self._get_playlist_tracks(playlist)
         incoming_uris = self._get_data_tracks(track_data)
 
-        uris_to_add, uris_to_remove = get_diff(current_uris, incoming_uris)
+        addition_pairs, deletion_pairs = get_diff(current_uris, incoming_uris)
+        add_num = len(addition_pairs)
+        del_num = len(deletion_pairs)
 
-        if len(uris_to_add) == 0:
+        if add_num == 0:
             click.echo(f"No tracks to add to {playlist.name!r}")
         else:
             self.spotify.playlist_add(
                 playlist_id=playlist.id,
-                uris=list(uris_to_add),
+                uris=[pair.uri for pair in addition_pairs],
             )
-            click.secho(
-                f"Added {len(uris_to_add)} tracks to {playlist.name!r}",
-                fg="green"
-            )
+            click.echo(f"Added {add_num} tracks to {playlist.name!r}:")
+            click.echo("\n".join(
+                f"{ADDITION_MARK} {pair.name}" for pair in addition_pairs
+            ))
 
-        if len(uris_to_remove) == 0:
+        if del_num == 0:
             click.echo(f"No tracks to remove from {playlist.name!r}")
         else:
             self.spotify.playlist_remove(
                 playlist_id=playlist.id,
-                uris=list(uris_to_remove),
+                uris=[pair.uri for pair in deletion_pairs],
             )
-            click.secho(
-                f"Removed {len(uris_to_remove)} tracks from {playlist.name!r}",
-                fg="red"
-            )
+            click.echo(f"Removed {del_num} tracks from {playlist.name!r}:")
+            click.echo("\n".join(
+                f"{DELETION_MARK} {pair.name}" for pair in deletion_pairs
+            ))
 
     def _get_current_playlist(self, playlist_id
                               ) -> Optional[tekore.model.FullPlaylist]:
@@ -105,12 +121,12 @@ class Deserializer:
         return playlist
 
     def _get_playlist_tracks(self, playlist: tekore.model.FullPlaylist
-                             ) -> List[SpotifyURI]:
+                             ) -> List[URINamePair]:
         paging = playlist.tracks
         track_iterator: Generator[tekore.model.PlaylistTrack, None, None]
         track_iterator = self.spotify.all_items(paging)  # type: ignore
 
-        result: List[SpotifyURI] = []
+        result: List[URINamePair] = []
         for track in track_iterator:
             _track = track.track
             if _track is None:  # Still don't know why this can happen
@@ -121,14 +137,16 @@ class Deserializer:
                 "episode" if _track.episode else "track",
                 track_id,
             )
-            result.append(uri)
+            result.append(URINamePair(uri, _track.name))
         return result
 
     def _get_data_tracks(self, track_data: List[TrackJSON]
-                         ) -> List[SpotifyURI]:
+                         ) -> List[URINamePair]:
         return [
-            tekore.to_uri(track["type"], track["id"])
-            for track in track_data
+            URINamePair(
+                tekore.to_uri(track["type"], track["id"]),
+                track["name"],
+            ) for track in track_data
         ]
 
 
