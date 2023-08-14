@@ -3,14 +3,16 @@
 Implement deserializing the serialized data into the user's library.
 """
 
+import json
 from datetime import datetime
 from pathlib import Path
 
 import click
 import tekore
 
-from .. import CONFIG_DIR
+from .. import CONFIG_DIR, abort_with_error
 from ..client import get_client
+from ..schema import PlaylistJSON, SnapshotJSON
 from .serialize import Serializer
 
 DESERIALIZE_NOTICE = (
@@ -24,8 +26,8 @@ class Deserializer:
     def __init__(self, spotify: tekore.Spotify) -> None:
         self.spotify = spotify
 
-    def deserialize(self, snapshot_dir: Path) -> None:
-        click.secho(snapshot_dir)  # TODO
+    def deserialize(self, playlist: PlaylistJSON) -> None:
+        click.secho(playlist)  # TODO
 
 
 def prompt_confirmation() -> None:
@@ -52,11 +54,42 @@ def create_backup(serializer: Serializer) -> None:
 # pylint: disable=redefined-builtin
 def deserialize_command(input: Path) -> None:
     spotify = get_client()
+
+    data_path = (input / "data.json").resolve()
+    with data_path.open("rt", encoding="utf-8") as data_file:
+        data: SnapshotJSON = json.load(data_file)
+
+    # TODO: for now, if the user names multiple playlists with the same
+    # name, that's on them lol
+    playlists = data["ownedPlaylists"]
+    playlist_names = [playlist["name"] for playlist in playlists]
+    click.secho(f"Names of your owned playlists found in {data_path}:",
+                fg="yellow")
+    click.secho("\n".join(f"* {name}" for name in playlist_names))
+
+    playlist_name = click.prompt(
+        click.style("Choose playlist to deserialize", fg="yellow"),
+        type=click.Choice(playlist_names),
+        show_choices=False,
+    )
+
+    chosen_playlist: PlaylistJSON
+    for playlist in playlists:
+        if playlist["name"] == playlist_name:
+            chosen_playlist = playlist
+            break
+    else:
+        abort_with_error(f"Somehow couldn't get playlist for {playlist_name=}")
+
     prompt_confirmation()
 
     deserializer = Deserializer(spotify)
-    click.secho(f"Deserializing your backup file {input}...",
-                fg="green")
-    deserializer.deserialize(input)
-    click.secho(f"Deserialized backup file {input} into your Spotify library",
-                fg="green")
+    click.secho(
+        f"Deserializing your backup file {input} for {playlist_name!r}...",
+        fg="green"
+    )
+    deserializer.deserialize(chosen_playlist)
+    click.secho(
+        f"Deserialized backup file {input} into playlist {playlist_name!r}",
+        fg="green"
+    )
