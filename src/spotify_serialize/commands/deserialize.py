@@ -6,7 +6,7 @@ Implement deserializing the serialized data into the user's library.
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, List, Optional, Set
+from typing import Generator, List, Optional, Sequence, Tuple, TypeVar
 
 import click
 import tekore
@@ -21,6 +21,24 @@ DESERIALIZE_NOTICE = (
     "current state of your Spotify library. Proceed?"
 )
 BACKUP_DIR = CONFIG_DIR / "backups"
+
+T = TypeVar("T")
+
+
+def get_diff(before: Sequence[T], after: Sequence[T]
+             ) -> Tuple[List[T], List[T]]:
+    """
+    Return a 2-tuple containing the additions and deletions to get from
+    `before` to `after`, preserving relative order of items such that:
+
+    * Items in the additions are in the order they appear in `after`.
+    * Items in the deletions are in the order they appear in `before`.
+    """
+    before_set = set(before)
+    after_set = set(after)
+    additions = [item for item in after if item not in before_set]
+    deletions = [item for item in before if item not in after_set]
+    return (additions, deletions)
 
 
 class Deserializer:
@@ -44,8 +62,7 @@ class Deserializer:
         current_uris = self._get_playlist_tracks(playlist)
         incoming_uris = self._get_data_tracks(track_data)
 
-        uris_to_add = incoming_uris - current_uris
-        uris_to_remove = current_uris - incoming_uris
+        uris_to_add, uris_to_remove = get_diff(current_uris, incoming_uris)
 
         if len(uris_to_add) == 0:
             click.echo(f"No tracks to add to {playlist.name!r}")
@@ -88,12 +105,12 @@ class Deserializer:
         return playlist
 
     def _get_playlist_tracks(self, playlist: tekore.model.FullPlaylist
-                             ) -> Set[SpotifyURI]:
+                             ) -> List[SpotifyURI]:
         paging = playlist.tracks
         track_iterator: Generator[tekore.model.PlaylistTrack, None, None]
         track_iterator = self.spotify.all_items(paging)  # type: ignore
 
-        result: Set[SpotifyURI] = set()
+        result: List[SpotifyURI] = []
         for track in track_iterator:
             _track = track.track
             if _track is None:  # Still don't know why this can happen
@@ -104,15 +121,15 @@ class Deserializer:
                 "episode" if _track.episode else "track",
                 track_id,
             )
-            result.add(uri)
+            result.append(uri)
         return result
 
     def _get_data_tracks(self, track_data: List[TrackJSON]
-                         ) -> Set[SpotifyURI]:
-        return {
+                         ) -> List[SpotifyURI]:
+        return [
             tekore.to_uri(track["type"], track["id"])
             for track in track_data
-        }
+        ]
 
 
 def prompt_confirmation() -> None:
