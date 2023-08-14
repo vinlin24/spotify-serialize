@@ -6,14 +6,13 @@ Implement serializing the user's library into a compressed data format.
 import json
 from datetime import datetime
 from pathlib import Path
-from turtle import update
 from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
 
 import click
 import requests
 import tekore
 
-from .. import abort_with_error
+from .. import abort_with_error, echo_warning
 from ..client import get_client
 from ..schema import (FollowedPlaylistJSON, PlaylistJSON, SnapshotJSON,
                       TrackJSON, UserJSON)
@@ -109,11 +108,6 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
         "description": full_playlist.description or None,
         "tracks": tracks
     }
-
-
-def echo_warning(message: str) -> None:
-    click.secho("WARNING: ", nl=False, fg="yellow", bold=True)
-    click.secho(message, fg="yellow")
 
 
 def warn_about_skipped_tracks(tracks: List[Track]) -> None:
