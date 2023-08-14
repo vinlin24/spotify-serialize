@@ -94,7 +94,7 @@ my_library/
     followed-playlists/
       [spotify_id].jpg
     owned-playlists/
-      [spotify-id].jpg
+      [spotify_id].jpg
     profile.jpg
   TIMESTAMP
   data.json
@@ -110,8 +110,8 @@ format](https://en.wikipedia.org/wiki/ISO_8601) (UTC) of the snapshot.
 
 `images/` serves as a database for the binary image data that comes with the
 Spotify data.  `profile.png` is the user's profile picture at the time of
-snapshot, `owned-playlists/[id].png` is the image set for the owned playlist
-with given `id`, etc.
+snapshot, `owned-playlists/[spotify_id].png` is the image set for the owned
+playlist with given `id`, etc.
 
 > You can also opt out of storing images with the `--no-images` flag.  Images
 > take up a lot of space!
@@ -125,8 +125,8 @@ deserialization (for obvious reasons).
 
 **Deserializing** means using the contents of a data file produced by
 [serialization](#serialization) to restore the represented state of your Spotify
-library. To minimize destructive behavior, this command at the moment only works
-on one playlist at a time.  *More features to come.*
+library.  To minimize destructive behavior, this command at the moment only
+works on one playlist at a time.  *More features to come.*
 
 ```sh
 spotify_serialize deserialize -i my_library
