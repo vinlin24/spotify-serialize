@@ -128,7 +128,11 @@ class Serializer:
         self.spotify = spotify
         self.with_images = with_images
 
-    def serialize(self, output_dir: Path, indent: int) -> None:
+    def serialize(self, output_dir: Optional[Path], indent: int) -> Path:
+        timestamp = datetime.now().isoformat()
+        if output_dir is None:
+            output_dir = Path(timestamp.replace(":", ""))
+
         output_dir.mkdir(parents=True)
         images_dir = output_dir / "images"
         if self.with_images:
@@ -139,7 +143,6 @@ class Serializer:
         owned_playlists, followed_playlists = \
             self._serialize_playlists(images_dir)
 
-        timestamp = datetime.now().isoformat()
         timestamp_path = output_dir / "TIMESTAMP"
         timestamp_path.write_text(timestamp)
 
@@ -153,6 +156,8 @@ class Serializer:
         json_path = output_dir / "data.json"
         with json_path.open("wt", encoding="utf-8") as json_file:
             json.dump(json_data, json_file, indent=indent)
+
+        return output_dir
 
     def _serialize_profile(self, images_dir: Path) -> JSONData:
         user = self.spotify.current_user()
@@ -250,18 +255,19 @@ class Serializer:
 
 @click.command("serialize")
 @click.option("-o", "--output",
-              required=True,
-              type=click.Path(path_type=Path))
+              type=click.Path(path_type=Path),
+              default=None)
 @click.option("-i", "--indent",
               type=int,
               default=2)
 @click.option("--no-images", is_flag=True)
-def serialize_command(output: Path, indent: int, no_images: bool) -> None:
+def serialize_command(output: Optional[Path], indent: int, no_images: bool
+                      ) -> None:
     spotify = get_client()
-    if output.exists():
+    if output and output.exists():
         abort_with_error(f"{output} already exists!")
 
     click.secho(f"Serializing your library to JSON...", fg="green")
     serializer = Serializer(spotify, with_images=not no_images)
-    serializer.serialize(output, indent)
+    output = serializer.serialize(output, indent)
     click.secho(f"Saved your library at {output.name}", fg="green")
