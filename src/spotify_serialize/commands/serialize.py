@@ -138,7 +138,8 @@ class Serializer:
     def serialize(self, output_dir: Optional[Path], indent: int) -> Path:
         timestamp = datetime.now().isoformat()
         if output_dir is None:
-            output_dir = Path(timestamp.replace(":", ""))
+            dir_name = timestamp.replace(":", "") + ".snapshot"
+            output_dir = Path(dir_name)
 
         output_dir.mkdir(parents=True)
         images_dir = output_dir / "images"

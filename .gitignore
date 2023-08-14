@@ -168,3 +168,6 @@ cython_debug/
 
 # Universal exception
 !.gitkeep
+
+# Auto-generated snapshot directories
+*.snapshot/
