@@ -171,3 +171,5 @@ cython_debug/
 
 # Auto-generated snapshot directories
 *.snapshot/
+*.zip
+*.tar

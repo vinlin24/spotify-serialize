@@ -4,9 +4,11 @@ Implement serializing the user's library into a compressed data format.
 """
 
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
+from typing import (Any, Dict, Generator, Iterator, List, Literal, Optional,
+                    Tuple, Union)
 
 import click
 import requests
@@ -260,6 +262,21 @@ class Serializer:
         return (owned, followed)
 
 
+def remove_directory(path: Path) -> None:
+    for subpath in path.iterdir():
+        if subpath.is_dir():
+            remove_directory(subpath)
+        else:
+            subpath.unlink()
+    path.rmdir()
+
+
+def compress_directory(path: Path, format: Literal["zip", "tar"]) -> Path:
+    output_name = shutil.make_archive(path.name, format, path)
+    remove_directory(path)
+    return Path(output_name).resolve()
+
+
 @click.command("serialize")
 @click.option("-o", "--output",
               type=click.Path(path_type=Path),
@@ -268,7 +285,12 @@ class Serializer:
               type=int,
               default=2)
 @click.option("--no-images", is_flag=True)
-def serialize_command(output: Optional[Path], indent: int, no_images: bool
+@click.option("-c", "--compress",
+              type=click.Choice(["zip", "tar"], case_sensitive=False))
+def serialize_command(output: Optional[Path],
+                      indent: int,
+                      no_images: bool,
+                      compress: Optional[Literal["zip", "tar"]],
                       ) -> None:
     spotify = get_client()
     if output and output.exists():
@@ -277,4 +299,7 @@ def serialize_command(output: Optional[Path], indent: int, no_images: bool
     click.secho(f"Serializing your library to JSON...", fg="green")
     serializer = Serializer(spotify, with_images=not no_images)
     output = serializer.serialize(output, indent)
+    if compress:
+        click.secho(f"Compressing to {compress} format...", fg="green")
+        output = compress_directory(output, compress)
     click.secho(f"Saved your library at {output.name}", fg="green")
