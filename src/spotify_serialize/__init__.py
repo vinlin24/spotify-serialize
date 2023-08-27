@@ -12,7 +12,7 @@ import click
 __author__ = "Vincent Lin"
 __version__ = "0.0.0"
 
-CONFIG_DIR = Path.home() / ".config" / "spotify-serialize"
+CONFIG_DIR = Path.home() / ".spotify-serialize"
 
 
 def echo_warning(message: str) -> None:
