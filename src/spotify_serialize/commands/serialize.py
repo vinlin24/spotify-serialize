@@ -14,7 +14,7 @@ import click
 import requests
 import tekore
 
-from .. import abort_with_error, echo_warning
+from .. import CONFIG_DIR, abort_with_error, echo_warning
 from ..client import get_client
 from ..schema import (FollowedPlaylistJSON, PlaylistJSON, SnapshotJSON,
                       TrackJSON, UserJSON)
@@ -136,7 +136,7 @@ class Serializer:
         timestamp = datetime.now().isoformat()
         if output_dir is None:
             dir_name = timestamp.replace(":", "") + ".snapshot"
-            output_dir = Path(dir_name)
+            output_dir = CONFIG_DIR / dir_name
 
         output_dir.mkdir(parents=True)
         images_dir = output_dir / "images"
@@ -302,4 +302,4 @@ def serialize_command(output: Optional[Path],
     if compress:
         click.secho(f"Compressing to {compress} format...", fg="green")
         output = compress_directory(output, compress)
-    click.secho(f"Saved your library at {output.name}", fg="green")
+    click.secho(f"Saved your library at {output}", fg="green")
