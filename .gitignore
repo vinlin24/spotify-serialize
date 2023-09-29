@@ -172,5 +172,6 @@ cython_debug/
 
 # Auto-generated snapshot directories
 *.snapshot/
+*.playlist-snapshot/
 *.zip
 *.tar

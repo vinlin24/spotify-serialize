@@ -65,7 +65,7 @@ def track_model_to_json(track: Track) -> Optional[TrackJSON]:
     }
 
 
-Playlist = tekore.model.SimplePlaylist
+Playlist = Union[tekore.model.SimplePlaylist, tekore.model.FullPlaylist]
 
 
 def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
@@ -74,9 +74,12 @@ def playlist_model_to_json(playlist: Playlist, spotify: tekore.Spotify
     Convert a tekore playlist model to the format of
     playlist.schema.json.
     """
-    # Convert simple playlist to full playlist to access tracks
     full_playlist: tekore.model.FullPlaylist
-    full_playlist = spotify.playlist(playlist.id)  # type: ignore
+    # Convert simple playlist to full playlist to access tracks
+    if isinstance(playlist, tekore.model.SimplePlaylist):
+        full_playlist = spotify.playlist(playlist.id)  # type: ignore
+    else:
+        full_playlist = playlist
 
     paging = full_playlist.tracks
     track_iterator: Generator[tekore.model.PlaylistTrack, None, None]
@@ -137,6 +140,7 @@ class Serializer:
         if output_dir is None:
             dir_name = timestamp.replace(":", "") + ".snapshot"
             output_dir = CONFIG_DIR / dir_name
+        output_dir.mkdir(exist_ok=True)
 
         output_dir.mkdir(parents=True)
         images_dir = output_dir / "images"
@@ -162,6 +166,9 @@ class Serializer:
         with json_path.open("wt", encoding="utf-8") as json_file:
             json.dump(json_data, json_file, indent=indent)
 
+        # Return the path to the output directory (useful for when
+        # output_dir was not provided i.e. was None, so one was created
+        # manually).
         return output_dir
 
     def _serialize_profile(self, images_dir: Path) -> UserJSON:
@@ -262,6 +269,41 @@ class Serializer:
         return (owned, followed)
 
 
+# TODO: some repeated code as to not break what already exists for now.
+class SinglePlaylistSerializer(Serializer):
+    def __init__(
+        self,
+        spotify: tekore.Spotify,
+        with_images: bool,
+        playlist_id: str,
+    ) -> None:
+        super().__init__(spotify, with_images)
+        self.playlist_id = playlist_id
+
+    def serialize(self, output_dir: Optional[Path], indent: int) -> Path:
+        timestamp = datetime.now().isoformat()
+        if output_dir is None:
+            # Special extension for single playlist snapshots, I guess.
+            dir_name = timestamp.replace(":", "") + ".playlist-snapshot"
+            output_dir = CONFIG_DIR / dir_name
+        output_dir.mkdir(exist_ok=True)
+
+        # TODO: maybe support images as well.
+
+        playlist: tekore.model.FullPlaylist = \
+            self.spotify.playlist(self.playlist_id)  # type: ignore
+        playlist_json = playlist_model_to_json(playlist, self.spotify)
+
+        json_path = output_dir / "data.json"
+        with json_path.open("wt", encoding="utf-8") as json_file:
+            json.dump(playlist_json, json_file, indent=indent)
+
+        # Return the path to the output directory (useful for when
+        # output_dir was not provided i.e. was None, so one was created
+        # manually).
+        return output_dir
+
+
 def remove_directory(path: Path) -> None:
     for subpath in path.iterdir():
         if subpath.is_dir():
@@ -287,19 +329,34 @@ def compress_directory(path: Path, format: Literal["zip", "tar"]) -> Path:
 @click.option("--no-images", is_flag=True)
 @click.option("-c", "--compress",
               type=click.Choice(["zip", "tar"], case_sensitive=False))
+@click.option("-p", "--playlist",
+              type=click.STRING,
+              default=None)
 def serialize_command(output: Optional[Path],
                       indent: int,
                       no_images: bool,
                       compress: Optional[Literal["zip", "tar"]],
+                      playlist: Optional[str],
                       ) -> None:
     spotify = get_client()
     if output and output.exists():
         abort_with_error(f"{output} already exists!")
 
-    click.secho(f"Serializing your library to JSON...", fg="green")
-    serializer = Serializer(spotify, with_images=not no_images)
+    with_images = not no_images
+
+    if playlist is not None:
+        serializer = SinglePlaylistSerializer(spotify, with_images, playlist)
+        click.secho(f"Serializing your library to JSON...", fg="green")
+    else:
+        serializer = Serializer(spotify, with_images)
+        click.secho(
+            f"Serializing just your playlist (id={playlist}) to JSON...",
+            fg="green"
+        )
+
     output = serializer.serialize(output, indent)
+
     if compress:
         click.secho(f"Compressing to {compress} format...", fg="green")
         output = compress_directory(output, compress)
-    click.secho(f"Saved your library at {output}", fg="green")
+    click.secho(f"Saved your data at {output}", fg="green")

@@ -122,12 +122,30 @@ Spotify data.  `profile.png` is the user's profile picture at the time of
 snapshot, `owned-playlists/[spotify_id].png` is the image set for the owned
 playlist with given `id`, etc.
 
-> You can also opt out of storing images with the `--no-images` flag.  Images
+> 💡 You can also opt out of storing images with the `--no-images` flag.  Images
 > take up a lot of space!
 
 The state of the followed playlists is saved too in case one wants to peek into
 what that playlist used to look like -- although it's unavailable for
 deserialization (for obvious reasons).
+
+**ADDED:** The `--playlist` option for serializing just one playlist:
+
+```sh
+poetry run ss serialize --playlist "5FpuSaX0kDeItlPMIIYBZS"
+```
+
+This will generate a `[TIMESTAMP].playlist-snapshot` directory containing a
+`data.json`, but instead of it having the [full
+schema](schema/snapshot.schema.json), it only contains data for the [singular
+playlist](schema/playlist.schema.json).
+
+> 📝 This was motivated by me starting a new counter using my
+[counters](https://github.com/vinlin24/counters) program, where I make my main
+Spotify playlist be named "Day 0x01", "Day 0x02", etc. for the rest of my senior
+year until I graduate. With `--playlist`, I can hook a script up to a scheduler
+such that I back up this playlist daily so I can observe how it changes over the
+course of the year!
 
 
 ### Deserialization
