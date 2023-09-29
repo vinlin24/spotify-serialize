@@ -319,6 +319,32 @@ def compress_directory(path: Path, format: Literal["zip", "tar"]) -> Path:
     return Path(output_name).resolve()
 
 
+def resolve_playlist_id(string: str) -> str:
+    """
+    Given a string, try to interpret it as a Spotify playlist ID. It
+    could already be an ID or it could be a URI or URL.
+    """
+    try:
+        _, playlist_id = tekore.from_uri(string)
+        return playlist_id
+    except tekore.ConversionError:
+        pass
+
+    try:
+        _, playlist_id = tekore.from_url(string)
+        return playlist_id
+    except tekore.ConversionError:
+        pass
+
+    try:
+        tekore.check_id(string)
+        return string
+    except tekore.ConversionError:
+        pass
+
+    raise click.BadParameter("unrecognized playlist ID format")
+
+
 @click.command("serialize")
 @click.option("-o", "--output",
               type=click.Path(path_type=Path),
@@ -345,7 +371,12 @@ def serialize_command(output: Optional[Path],
     with_images = not no_images
 
     if playlist is not None:
-        serializer = SinglePlaylistSerializer(spotify, with_images, playlist)
+        playlist_id = resolve_playlist_id(playlist)
+        serializer = SinglePlaylistSerializer(
+            spotify,
+            with_images,
+            playlist_id,
+        )
         click.secho(f"Serializing your library to JSON...", fg="green")
     else:
         serializer = Serializer(spotify, with_images)

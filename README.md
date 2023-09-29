@@ -132,7 +132,8 @@ deserialization (for obvious reasons).
 **ADDED:** The `--playlist` option for serializing just one playlist:
 
 ```sh
-poetry run ss serialize --playlist "5FpuSaX0kDeItlPMIIYBZS"
+# Supports ID, URI, and URL.
+poetry run ss serialize --playlist https://open.spotify.com/playlist/5FpuSaX0kDeItlPMIIYBZS?si=e4674d3fca804ea7
 ```
 
 This will generate a `[TIMESTAMP].playlist-snapshot` directory containing a
