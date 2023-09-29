@@ -18,7 +18,7 @@
 
 Simple backup system for a user's Spotify library.
 
-**Work in progress.**
+**Some features are still a work in progress.**
 
 
 ## Description
@@ -33,27 +33,36 @@ project, a Spotify version control system.
 
 ## Setup
 
-Create and activate a new virtual environment for the project directory.  Then,
-you can install the package in **editable mode**:
+This project has been upgraded to use the [Poetry](https://python-poetry.org/)
+package manager.
 
-```sh
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
+If you prefer to have Poetry create a virtual environment locally in the project
+directory, you can initialize your own (`.gitignore`d) `poetry.toml`
+configuration file:
+
+```toml
+[virtualenvs]
+create = true
+in-project = true
 ```
 
-> **NOTE:** This project uses [`pyproject.toml`](pyproject.toml) for metadata
-> and setup instead of the legacy `setup.py` approach.  If the installation
-> fails, you probably have an outdated version of pip:
->
->   ```sh
->   python -m pip install --upgrade pip
->   ```
+Then run this to install all dependencies, including the Spotify Serialize
+package itself:
+
+```sh
+poetry install
+```
 
 
 ## Running
 
-The CLI command is `spotify_serialize`.  Below are some tentative example usages.
+The script is `ss`, which you can invoke through Poetry:
+
+```sh
+poetry run ss --help
+```
+
+Below are some tentative example usages.
 
 
 ### Authentication
@@ -66,7 +75,7 @@ file is present, the application will automatically use or refresh your access
 token, so you only need to run this for the first time:
 
 ```sh
-spotify_serialize login
+poetry run ss login
 ```
 
 This command will automatically open a web browser prompting you to authorize my
@@ -82,7 +91,7 @@ current Spotify library and transforming its relevant attributes into data that
 can be saved on your local filesystem.
 
 ```sh
-spotify_serialize serialize -o my_library
+poetry run ss serialize -o my_library
 ```
 
 The format of the output file (e.g. `my_library`) is a directory with the
@@ -129,7 +138,7 @@ library.  To minimize destructive behavior, this command at the moment only
 works on one playlist at a time.  *More features to come.*
 
 ```sh
-spotify_serialize deserialize -i my_library
+poetry run ss deserialize -i my_library
 ```
 
 After entering the command with the path to the snapshot directory, the program
@@ -147,4 +156,5 @@ Spotify library.  This includes additions *and* deletions:
 
 ## Disclaimer
 
-This is a hobby project, and I shall not be held liable for misuse of this package or lost user data.
+This is a hobby project, and I shall not be held liable for misuse of this
+package or lost user data.
